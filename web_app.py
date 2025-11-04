@@ -92,24 +92,23 @@ class WebTradingBot:
         # Initialize Pump.fun client
         self.pumpfun_client = PumpFunClient(self.solana_client)
         
-        # Initialize detector based on mode
+        # Always use RealLaunchDetector - detect REAL tokens in both modes!
+        # QuickNode Pump.fun API provides real token launches
+        self.detector = RealLaunchDetector(
+            self.solana_client,
+            self.pumpfun_client
+        )
+        
         if is_dry_run:
-            self.detector = MockLaunchDetector(
-                self.solana_client,
-                self.pumpfun_client
-            )
-            self.logger.info("🧪 Using Mock Launch Detector (Dry Run)")
+            self.logger.info("🧪 DRY-RUN MODE: Using RealLaunchDetector")
+            self.logger.info("   📡 Detecting REAL Pump.fun token launches")
+            self.logger.info("   🧪 Transactions will be SIMULATED (no real trades)")
+            self.logger.info("   ✅ QuickNode Pump.fun API - Real tokens!")
         else:
-            # Use RealLaunchDetector for live mode
-            # QuickNode has no rate limits, so we can detect REAL tokens!
-            self.detector = RealLaunchDetector(
-                self.solana_client,
-                self.pumpfun_client
-            )
             self.logger.info("🔴 LIVE MODE: Using RealLaunchDetector")
             self.logger.info("   📡 Detecting REAL Pump.fun token launches")
             self.logger.info("   💰 Will execute REAL transactions on mainnet")
-            self.logger.info("   ✅ QuickNode RPC - No rate limits!")
+            self.logger.info("   ✅ QuickNode Pump.fun API - No rate limits!")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
