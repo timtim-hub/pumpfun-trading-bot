@@ -48,6 +48,12 @@ socket.on('bot_update', (data) => {
     updateDashboard(data);
 });
 
+// Listen for log messages
+socket.on('log_message', (data) => {
+    console.log('📝 Log:', data.message);
+    addLiveLog(data.message, data.level);
+});
+
 socket.on('bot_started', (data) => {
     showToast('Bot Started', data.message, 'success');
     updateStatus(true);

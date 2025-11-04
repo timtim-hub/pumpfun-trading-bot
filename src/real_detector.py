@@ -33,9 +33,11 @@ class RealLaunchDetector:
         self.pumpfun_program = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")
         
         # Polling configuration
-        self.poll_interval = 1  # Check every second - launches happen frequently!
-        self.max_signatures_per_poll = 50  # Get many signatures per poll
+        self.poll_interval = 3  # Start with 3 seconds (will adjust if rate limited)
+        self.max_signatures_per_poll = 20  # Reduced to avoid rate limits
         self.last_signature = None
+        self.rate_limit_backoff = 0  # Seconds to wait after rate limit
+        self.consecutive_errors = 0
     
     async def start_monitoring(self, callback: Callable):
         """
@@ -56,11 +58,28 @@ class RealLaunchDetector:
         
         while self.running:
             try:
+                # Apply rate limit backoff if needed
+                if self.rate_limit_backoff > 0:
+                    self.logger.warning(f"⏳ Rate limited, waiting {self.rate_limit_backoff}s...")
+                    await asyncio.sleep(self.rate_limit_backoff)
+                    self.rate_limit_backoff = 0  # Reset after waiting
+                
                 await self._poll_for_new_launches()
+                self.consecutive_errors = 0  # Reset on success
                 await asyncio.sleep(self.poll_interval)
             except Exception as e:
-                self.logger.error(f"Polling error: {e}")
-                await asyncio.sleep(self.poll_interval * 2)
+                error_str = str(e)
+                self.consecutive_errors += 1
+                
+                # Check if it's a rate limit error
+                if "429" in error_str or "Too Many Requests" in error_str:
+                    # Exponential backoff for rate limits
+                    self.rate_limit_backoff = min(60, 2 ** self.consecutive_errors)  # Max 60s
+                    self.poll_interval = min(10, self.poll_interval * 1.5)  # Increase poll interval
+                    self.logger.warning(f"⚠️  Rate limited! Backing off for {self.rate_limit_backoff}s, poll interval now {self.poll_interval}s")
+                else:
+                    self.logger.error(f"Polling error: {e}")
+                    await asyncio.sleep(self.poll_interval * 2)
     
     async def _poll_for_new_launches(self):
         """Poll for new token launch transactions"""
