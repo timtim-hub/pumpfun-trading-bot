@@ -215,10 +215,17 @@ function updatePositions(positions) {
     positionsCard.style.display = 'block';
     positionCount.textContent = positions.length;
     
-    positionsList.innerHTML = positions.map(pos => `
+    positionsList.innerHTML = positions.map(pos => {
+        // Pump.fun link for active positions
+        const pumpfunLink = pos.mint ? `https://pump.fun/${pos.mint}` : '#';
+        const tokenDisplay = pos.mint
+            ? `<h4><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${pos.symbol}</a> 🔗</h4>`
+            : `<h4>${pos.symbol}</h4>`;
+        
+        return `
         <div class="position-item">
             <div class="position-info">
-                <h4>${pos.symbol}</h4>
+                ${tokenDisplay}
                 <p>Entry: ${pos.entry_price.toFixed(8)} SOL | Current: ${pos.current_price.toFixed(8)} SOL | Hold: ${pos.hold_time}s</p>
             </div>
             <div class="position-pnl">
@@ -230,7 +237,8 @@ function updatePositions(positions) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // Initialize Charts
@@ -481,15 +489,24 @@ function displayTrades(trades) {
         return;
     }
     
+    // Update colspan if we added link column
+    tbody.innerHTML = '';
+    
     tbody.innerHTML = trades.reverse().map(trade => {
         const pnlClass = trade.pnl_sol >= 0 ? 'positive' : 'negative';
         const outcomeClass = trade.outcome === 'profit' ? 'outcome-profit' : 'outcome-loss';
         const time = new Date(trade.timestamp).toLocaleTimeString();
         
+        // Pump.fun link
+        const pumpfunLink = trade.mint ? `https://pump.fun/${trade.mint}` : '#';
+        const tokenDisplay = trade.mint 
+            ? `<strong><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${trade.symbol}</a> 🔗</strong>`
+            : `<strong>${trade.symbol}</strong>`;
+        
         return `
             <tr>
                 <td>${time}</td>
-                <td><strong>${trade.symbol}</strong></td>
+                <td>${tokenDisplay}</td>
                 <td>${trade.entry_price.toFixed(8)}</td>
                 <td>${trade.exit_price.toFixed(8)}</td>
                 <td class="${pnlClass}">${trade.pnl_sol >= 0 ? '+' : ''}${trade.pnl_sol.toFixed(4)}</td>

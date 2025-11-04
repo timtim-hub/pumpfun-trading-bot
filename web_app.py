@@ -212,6 +212,7 @@ class WebTradingBot:
                 'positions': [
                     {
                         'symbol': pos.token.symbol,
+                        'mint': pos.token.mint,  # Add mint for Pump.fun links
                         'entry_price': pos.entry_price,
                         'current_price': pos.current_price,
                         'pnl_percent': round(pos.unrealized_pnl_percent, 2),
@@ -359,6 +360,7 @@ def get_trades():
                 trades.append({
                     'timestamp': row['timestamp'],
                     'symbol': row['token_symbol'],
+                    'mint': row.get('token_mint', ''),  # Add mint for Pump.fun links
                     'entry_price': float(row['entry_price']),
                     'exit_price': float(row['exit_price']) if row['exit_price'] else 0,
                     'pnl_sol': float(row['pnl_sol']),
