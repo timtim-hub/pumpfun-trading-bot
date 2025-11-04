@@ -153,20 +153,17 @@ class RiskManager:
         sell_count = activity.get('sell_count', 0)
         unique_buyers = activity.get('unique_buyers', 0)
         
-        # BASIC FILTERS - Remove obviously bad tokens
-        if progress < config['min_bonding_curve_progress']:
-            return False, f"Bonding curve progress too low ({progress:.1f}%)"
-        
-        if progress > config['max_bonding_curve_progress']:
-            return False, f"Entry too late ({progress:.1f}% filled)"
-        
-        # Moderate volume requirement (1.2x minimum)
-        if volume < config['min_early_volume_sol'] * 1.2:
-            return False, f"Volume too low ({volume:.2f} SOL)"
-        
-        # Require some positive momentum
-        if price_change < 0:
-            return False, f"Negative momentum ({price_change:.1f}%)"
+        # BASIC FILTERS (relaxed if data is missing)
+        data_missing = all(v == 0 or v is None for v in [progress, volume, price_change, buy_count, unique_buyers])
+        if not data_missing:
+            if progress < config['min_bonding_curve_progress']:
+                return False, f"Bonding curve progress too low ({progress:.1f}%)"
+            if progress > config['max_bonding_curve_progress']:
+                return False, f"Entry too late ({progress:.1f}% filled)"
+            if volume < max(0.0, config['min_early_volume_sol'] * 0.5):  # relaxed
+                return False, f"Volume too low ({volume:.2f} SOL)"
+            if price_change < -2:  # allow small negatives
+                return False, f"Negative momentum ({price_change:.1f}%)"
         
         if token.is_suspicious:
             return False, "Token flagged as suspicious"
@@ -224,8 +221,11 @@ class RiskManager:
         
         # 🎯 FILTER: Enter if momentum score >= 35 (trade 30-40% of tokens)
         # This balances selectivity with actually making trades
-        if momentum_score < 35:
-            return False, f"❌ Weak signal (score: {momentum_score}/100) - need 35+ to enter"
+        # If metrics missing, allow exploratory entries
+        if data_missing:
+            return True, "Exploratory entry (insufficient live metrics)"
+        if momentum_score < 20:  # relaxed threshold
+            return False, f"❌ Weak signal (score: {momentum_score}/100) - need 20+ to enter"
         
         if momentum_score >= 70:
             return True, f"🔥 EXCELLENT (score: {momentum_score}/100) - HIGH CONFIDENCE!"

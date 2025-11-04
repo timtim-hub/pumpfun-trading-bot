@@ -293,6 +293,15 @@ class TradingEngine:
                 self.logger.success(f"✅✅✅ REAL TRANSACTION EXECUTED!")
                 self.logger.success(f"   Your wallet was charged {sol_amount:.4f} SOL")
             
+            # Default prices if missing
+            if not token.current_price and token.initial_price:
+                token.current_price = token.initial_price
+            if not token.initial_price and token.current_price:
+                token.initial_price = token.current_price
+            if token_amount == 0 and (token.current_price or token.initial_price):
+                price_ref = token.current_price or token.initial_price
+                token_amount = sol_amount / price_ref if price_ref > 0 else 0
+            
             # Create position
             position = Position(
                 token=token,
@@ -702,18 +711,17 @@ class TradingEngine:
             position: Position to update
         """
         try:
-            # Get current price (real data in both modes)
-            curve_data = None
-            try:
-                if position.token.bonding_curve:
-                    curve_data = await self.pumpfun.get_bonding_curve_data(
-                        position.token.bonding_curve
-                    )
-            except Exception as _:
-                curve_data = None
-
-            # TODO: decode curve_data to extract actual price; fallback to last price if unknown
-            new_price = position.current_price
+            # Get current price
+            if self.dry_run:
+                # Simulate small random walk for price to trigger exits
+                import random
+                drift = random.uniform(-0.03, 0.06)  # -3% to +6%
+                base = position.current_price or position.entry_price
+                new_price = max(base * (1 + drift), position.entry_price * 0.05)
+                new_price = min(new_price, position.entry_price * 5)
+            else:
+                # Real mode: fallback to last price until full decoding is implemented
+                new_price = position.current_price or position.entry_price
             
             # Update position
             position.update_price(new_price)

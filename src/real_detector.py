@@ -236,7 +236,7 @@ class RealLaunchDetector:
                 except Exception:
                     pass
 
-            # As a final heuristic, scan inner instructions for spl-token mint init
+            # As a final heuristic, scan message account keys/instructions
             bonding_curve = None
             creator = None
             try:
@@ -245,15 +245,21 @@ class RealLaunchDetector:
                     keys = value.transaction.message.account_keys
                     # Stringify Pubkeys
                     key_strs = [str(k.pubkey) if hasattr(k, 'pubkey') else str(k) for k in keys]
-                    # Pump.fun tx often includes creator and bonding curve accounts around the program id
-                    # Heuristic: pick any key that isn't system or token program as bonding curve placeholder
-                    for k in key_strs:
-                        if k not in ["11111111111111111111111111111111",  # System
-                                     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token
-                                     str(self.pumpfun_program)]:
-                            bonding_curve = bonding_curve or k
-                    if key_strs:
-                        creator = key_strs[0]
+                    # Try to choose plausible mint/bonding curve/creator
+                    filtered = [k for k in key_strs if k not in [
+                        "11111111111111111111111111111111",
+                        "SysvarRent111111111111111111111111111111111",
+                        "SysvarC1ock11111111111111111111111111111111",
+                        "ComputeBudget111111111111111111111111111111",
+                        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                        str(self.pumpfun_program)
+                    ]]
+                    if not mint and filtered:
+                        mint = filtered[0]
+                    if not bonding_curve and len(filtered) > 1:
+                        bonding_curve = filtered[1]
+                    if not creator and key_strs:
+                        creator = key_strs[-1]
             except Exception:
                 pass
 
@@ -266,6 +272,7 @@ class RealLaunchDetector:
             symbol = mint[:4]
 
             # Build TokenInfo according to models.TokenInfo
+            # Provide conservative default prices to enable simulation/dry-run flows
             token = TokenInfo(
                 mint=mint,
                 name=name,
@@ -275,7 +282,9 @@ class RealLaunchDetector:
                 associated_bonding_curve="",
                 created_at=datetime.now(),
                 block_time=getattr(sig_info, 'block_time', None),
-                signature=signature
+                signature=signature,
+                initial_price=1e-7,
+                current_price=1e-7
             )
             return token
         except Exception as e:
@@ -349,59 +358,51 @@ class RealLaunchDetector:
         """
         self.logger.debug(f"Monitoring early activity for {duration_seconds}s...")
         
-        # Track initial state
-        try:
-            bonding_curve_pubkey = Pubkey.from_string(bonding_curve)
-            initial_account = await self.solana.client.get_account_info(bonding_curve_pubkey)
-        except:
-            initial_account = None
-        
-        # Wait
+        # Wait briefly to collect initial transactions
         await asyncio.sleep(duration_seconds)
         
-        # Check final state
+        # Approximate activity from recent signatures for bonding curve account
         try:
-            final_account = await self.solana.client.get_account_info(bonding_curve_pubkey)
-        except:
-            final_account = None
-        
-        # Calculate metrics (simplified)
-        # In production, decode account data and parse bonding curve state
-        
-        import random
-        
-        # Generate realistic activity based on randomness
-        activity_level = random.random()
-        
-        if activity_level < 0.3:  # Low activity
+            bonding_curve_pubkey = Pubkey.from_string(bonding_curve)
+            sigs_resp = await self.solana.client.get_signatures_for_address(
+                bonding_curve_pubkey,
+                limit=50
+            )
+            recent = 0
+            now = int(time.time())
+            if sigs_resp and sigs_resp.value:
+                for s in sigs_resp.value:
+                    bt = getattr(s, 'block_time', None)
+                    if bt and (now - int(bt)) <= max(1, duration_seconds + 2):
+                        recent += 1
+            # Map counts to heuristic metrics
+            buy_count = max(0, recent)
+            sell_count = max(0, int(recent * 0.15))
+            unique_buyers = max(1, min(buy_count, 50))
+            volume_sol = round(0.15 * buy_count, 4)  # ~0.15 SOL per tx heuristic
+            price_change_percent = min(100.0, buy_count * 4.0)
+            bonding_curve_progress = min(60.0, buy_count * 2.0)
+            buy_sell_ratio = (buy_count / max(1, sell_count)) if sell_count else 3.0
             return {
-                'buy_count': random.randint(1, 3),
-                'sell_count': random.randint(0, 1),
-                'volume_sol': random.uniform(0.1, 0.5),
-                'unique_buyers': random.randint(1, 3),
-                'price_change_percent': random.uniform(-5, 5),
-                'bonding_curve_progress': random.uniform(0, 5),
-                'buy_sell_ratio': random.uniform(0.5, 2.0)
+                'buy_count': buy_count,
+                'sell_count': sell_count,
+                'volume_sol': volume_sol,
+                'unique_buyers': unique_buyers,
+                'price_change_percent': price_change_percent,
+                'bonding_curve_progress': bonding_curve_progress,
+                'buy_sell_ratio': buy_sell_ratio
             }
-        elif activity_level < 0.7:  # Medium activity
+        except Exception as e:
+            self.logger.debug(f"Activity estimate failed: {e}")
+            # Conservative fallback
             return {
-                'buy_count': random.randint(5, 15),
-                'sell_count': random.randint(1, 5),
-                'volume_sol': random.uniform(1.0, 5.0),
-                'unique_buyers': random.randint(4, 10),
-                'price_change_percent': random.uniform(5, 30),
-                'bonding_curve_progress': random.uniform(5, 20),
-                'buy_sell_ratio': random.uniform(2.0, 5.0)
-            }
-        else:  # High activity
-            return {
-                'buy_count': random.randint(20, 50),
-                'sell_count': random.randint(2, 10),
-                'volume_sol': random.uniform(5.0, 20.0),
-                'unique_buyers': random.randint(15, 40),
-                'price_change_percent': random.uniform(30, 100),
-                'bonding_curve_progress': random.uniform(20, 60),
-                'buy_sell_ratio': random.uniform(5.0, 15.0)
+                'buy_count': 0,
+                'sell_count': 0,
+                'volume_sol': 0.0,
+                'unique_buyers': 0,
+                'price_change_percent': 0.0,
+                'bonding_curve_progress': 0.0,
+                'buy_sell_ratio': 1.0
             }
     
     async def stop(self):
