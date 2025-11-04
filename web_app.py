@@ -129,8 +129,11 @@ class WebTradingBot:
         """Start the trading bot"""
         self.running = True
         
-        emit_log(f"🚀 Starting bot in {self.config.get('mode', 'unknown').upper()} mode...")
-        emit_log(f"💰 Initial balance: {self.trading_engine.available_capital:.4f} SOL")
+        # Emit logs via socketio
+        socketio.emit('log_message', {
+            'message': f"🚀 Starting bot in {self.config.get('mode', 'unknown').upper()} mode...",
+            'level': 'info'
+        })
         
         # Start trading engine in background task
         engine_task = asyncio.create_task(self.trading_engine.start(keypair=None))
