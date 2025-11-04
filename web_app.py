@@ -741,8 +741,18 @@ def handle_stop_bot():
     
     def stop_bot():
         try:
-            if bot_state['bot']:
-                bot_state['bot'].run_async(bot_state['bot'].stop())
+            bot = bot_state.get('bot')
+            if bot:
+                # If the bot loop is running, schedule stop on that loop
+                if getattr(bot, 'loop', None):
+                    try:
+                        fut = asyncio.run_coroutine_threadsafe(bot.stop(), bot.loop)
+                        fut.result(timeout=15)
+                    except Exception as e:
+                        print(f"Error stopping bot on running loop: {e}")
+                else:
+                    # Fallback: run stop in a fresh loop
+                    asyncio.run(bot.stop())
             bot_state['running'] = False
             bot_state['bot'] = None
             socketio.emit('bot_stopped', {'message': 'Bot stopped successfully'})
