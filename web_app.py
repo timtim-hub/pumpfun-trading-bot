@@ -124,10 +124,18 @@ class WebTradingBot:
             
             # Add value of open positions
             for position in self.trading_engine.active_positions.values():
-                current_capital += position.current_price * position.entry_token_amount
+                position_value = position.current_price * position.entry_token_amount
+                current_capital += position_value
             
             # Update metrics with current capital
             metrics.update_capital(current_capital)
+            
+            # Force recalculate ROI
+            if metrics.initial_capital_sol > 0:
+                metrics.current_capital_sol = current_capital
+                roi = ((current_capital - metrics.initial_capital_sol) / metrics.initial_capital_sol) * 100
+            else:
+                roi = 0.0
             
             update_data = {
                 'running': self.running,
@@ -136,7 +144,7 @@ class WebTradingBot:
                     'current': round(current_capital, 4),
                     'initial': round(metrics.initial_capital_sol, 4),
                     'peak': round(metrics.peak_capital_sol, 4),
-                    'roi': round(metrics.roi_percent, 2)
+                    'roi': round(roi, 2)
                 },
                 'trades': {
                     'total': metrics.total_trades,

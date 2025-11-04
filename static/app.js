@@ -85,18 +85,29 @@ function setupEventListeners() {
 
 // Update Dashboard with Bot Data
 function updateDashboard(data) {
-    // Update capital metrics
-    document.getElementById('currentCapital').textContent = `${data.capital.current} SOL`;
-    document.getElementById('initialCapital').textContent = data.capital.initial;
-    document.getElementById('peakCapital').textContent = data.capital.peak;
+    console.log('Updating dashboard with data:', data);
+    
+    // Update capital metrics with animation
+    const currentCapitalEl = document.getElementById('currentCapital');
+    const oldValue = parseFloat(currentCapitalEl.textContent);
+    const newValue = data.capital.current;
+    
+    if (oldValue !== newValue) {
+        currentCapitalEl.style.animation = 'pulse 0.5s ease-in-out';
+        setTimeout(() => currentCapitalEl.style.animation = '', 500);
+    }
+    
+    currentCapitalEl.textContent = `${newValue.toFixed(4)} SOL`;
+    document.getElementById('initialCapital').textContent = data.capital.initial.toFixed(4);
+    document.getElementById('peakCapital').textContent = data.capital.peak.toFixed(4);
     
     const roiValue = data.capital.roi;
     const roiElement = document.getElementById('roi');
-    roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue}%`;
+    roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
     roiElement.className = `metric-value ${roiValue >= 0 ? 'positive' : 'negative'}`;
     
     const capitalChange = document.getElementById('capitalChange');
-    capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue}%`;
+    capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
     capitalChange.className = `change ${roiValue >= 0 ? 'positive' : 'negative'}`;
 
     // Update P&L
