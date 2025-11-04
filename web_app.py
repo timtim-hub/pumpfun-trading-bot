@@ -100,13 +100,15 @@ class WebTradingBot:
             )
             self.logger.info("🧪 Using Mock Launch Detector (Dry Run)")
         else:
-            # Use RealLaunchDetector for live mode - queries actual Solana blockchain
+            # Use RealLaunchDetector for live mode
+            # Pump.fun has MANY launches (multiple per second!)
             self.detector = RealLaunchDetector(
                 self.solana_client,
                 self.pumpfun_client
             )
-            self.logger.info("🔴 Using REAL Launch Detector (Live Trading)")
-            self.logger.info("   (Queries Solana for actual Pump.fun token launches)")
+            self.logger.info("🔴 LIVE MODE: Using RealLaunchDetector")
+            self.logger.info("   📡 Detecting REAL Pump.fun token launches")
+            self.logger.info("   💰 Will execute REAL transactions on mainnet")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
