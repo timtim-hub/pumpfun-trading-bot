@@ -14,7 +14,7 @@ logging:
     chat_id: ''
     enabled: false
   trade_log_file: logs/trades.csv
-mode: dry_run
+mode: live
 risk:
   blacklist_creators: []
   blacklist_keywords:

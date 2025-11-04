@@ -258,8 +258,15 @@ class WebTradingBot:
         """Run async coroutine in bot's event loop"""
         if self.loop is None:
             self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        return self.loop.run_until_complete(coro)
+        try:
+            asyncio.set_event_loop(self.loop)
+            return self.loop.run_until_complete(coro)
+        except RuntimeError as e:
+            # If loop is already running, schedule thread-safe
+            if 'already running' in str(e).lower():
+                fut = asyncio.run_coroutine_threadsafe(coro, self.loop)
+                return fut.result(timeout=30)
+            raise
 
 
 # Routes
