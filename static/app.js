@@ -83,6 +83,9 @@ function setupEventListeners() {
         filterTrades(e.target.value);
     });
 
+    // Mode toggle switch
+    document.getElementById('modeToggle').addEventListener('change', handleModeToggle);
+
     // Chart period buttons
     document.querySelectorAll('.chart-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -569,18 +572,98 @@ async function loadTradingMode() {
         const config = await response.json();
         const mode = config.mode || 'dry_run';
         
-        const modeBadge = document.getElementById('tradingModeBadge');
-        if (mode === 'live') {
-            modeBadge.innerHTML = '💰 Live Trading Mode';
-            modeBadge.className = 'badge badge-danger';
-            console.log('🔴 Trading Mode: LIVE');
-        } else {
-            modeBadge.innerHTML = '🧪 Dry Run Mode';
-            modeBadge.className = 'badge badge-info';
-            console.log('🧪 Trading Mode: DRY RUN');
-        }
+        // Update toggle switch
+        const modeToggle = document.getElementById('modeToggle');
+        modeToggle.checked = (mode === 'live');
+        
+        // Update mode labels
+        updateModeLabels(mode);
+        
+        console.log(`📊 Trading Mode Loaded: ${mode === 'live' ? 'LIVE' : 'DRY RUN'}`);
     } catch (error) {
         console.error('Error loading trading mode:', error);
+    }
+}
+
+// Update mode labels styling
+function updateModeLabels(mode) {
+    const dryLabel = document.getElementById('modeLabel');
+    const liveLabel = document.getElementById('modeLabelLive');
+    
+    if (mode === 'live') {
+        dryLabel.style.color = '#8b92b2';
+        dryLabel.style.fontWeight = '500';
+        liveLabel.style.color = '#ef4444';
+        liveLabel.style.fontWeight = '600';
+    } else {
+        dryLabel.style.color = '#6366f1';
+        dryLabel.style.fontWeight = '600';
+        liveLabel.style.color = '#8b92b2';
+        liveLabel.style.fontWeight = '500';
+    }
+}
+
+// Handle mode toggle
+async function handleModeToggle(event) {
+    const isLive = event.target.checked;
+    const newMode = isLive ? 'live' : 'dry_run';
+    
+    // Check if bot is running
+    if (statusIndicator.classList.contains('active')) {
+        showToast('Error', 'Please stop the bot before changing mode', 'error');
+        // Revert toggle
+        event.target.checked = !isLive;
+        return;
+    }
+    
+    // Confirm if switching to live
+    if (isLive) {
+        const confirmed = confirm(
+            '⚠️ WARNING: Switching to LIVE TRADING MODE\n\n' +
+            'The bot will trade with REAL MONEY from your wallet.\n\n' +
+            'Make sure your wallet is set up and funded.\n\n' +
+            'Do you want to continue?'
+        );
+        
+        if (!confirmed) {
+            event.target.checked = false;
+            return;
+        }
+    }
+    
+    // Show loading
+    showToast('Info', `Switching to ${isLive ? 'Live Trading' : 'Dry Run'} mode...`, 'info');
+    
+    try {
+        // Save mode to config
+        const response = await fetch('/api/config/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: newMode })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            updateModeLabels(newMode);
+            showToast(
+                'Success', 
+                `Switched to ${isLive ? '💰 Live Trading' : '🧪 Dry Run'} mode. Refreshing data...`, 
+                'success'
+            );
+            
+            // Refresh dashboard data
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.error || 'Failed to switch mode');
+        }
+    } catch (error) {
+        console.error('Error switching mode:', error);
+        showToast('Error', 'Failed to switch mode: ' + error.message, 'error');
+        // Revert toggle
+        event.target.checked = !isLive;
     }
 }
 

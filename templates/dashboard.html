@@ -26,9 +26,19 @@
                         <span class="status-dot"></span>
                         <span id="statusText">Stopped</span>
                     </div>
-                    <span class="badge badge-info" id="tradingModeBadge" style="margin-right: 10px;">
-                        🧪 Dry Run Mode
-                    </span>
+                    
+                    <!-- Mode Toggle Switch -->
+                    <div class="mode-toggle-container" style="margin-right: 15px;">
+                        <label class="mode-toggle-label">
+                            <span class="mode-label" id="modeLabel">🧪 Dry Run</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="modeToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="mode-label" id="modeLabelLive">💰 Live</span>
+                        </label>
+                    </div>
+                    
                     <a href="/settings" class="btn btn-secondary">
                         <span class="btn-icon">⚙️</span> Settings
                     </a>
