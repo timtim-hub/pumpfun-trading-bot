@@ -391,19 +391,46 @@ def update_config():
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         
-        # Update specific fields
+        # Update mode
         if 'mode' in data:
             config['mode'] = data['mode']
+            print(f"✅ Mode updated to: {data['mode']}")
         
-        if 'strategy' in data:
-            for key, value in data['strategy'].items():
-                if key in config['strategy']:
-                    config['strategy'][key] = value
+        # Map frontend keys to config structure
+        # Frontend sends: risk, entry, exit
+        # Config has: strategy (with nested fields), risk
         
         if 'risk' in data:
+            # Risk settings map to both strategy and risk sections
             for key, value in data['risk'].items():
-                if key in config['risk']:
+                # These go to strategy section
+                if key in ['max_position_size_percent', 'max_concurrent_trades']:
+                    if 'strategy' not in config:
+                        config['strategy'] = {}
+                    config['strategy'][key] = value
+                # These go to risk section
+                elif key in config.get('risk', {}):
                     config['risk'][key] = value
+        
+        if 'entry' in data:
+            # Entry settings go to strategy section
+            if 'strategy' not in config:
+                config['strategy'] = {}
+            for key, value in data['entry'].items():
+                # Map frontend keys to config keys
+                if key == 'min_bonding_curve_percent':
+                    config['strategy']['min_bonding_curve_progress'] = value
+                elif key == 'max_bonding_curve_percent':
+                    config['strategy']['max_bonding_curve_progress'] = value
+                elif key in ['min_early_volume_sol', 'evaluation_window_seconds']:
+                    config['strategy'][key] = value
+        
+        if 'exit' in data:
+            # Exit settings go to strategy section
+            if 'strategy' not in config:
+                config['strategy'] = {}
+            for key, value in data['exit'].items():
+                config['strategy'][key] = value
         
         if 'wallet' in data:
             for key, value in data['wallet'].items():
@@ -414,9 +441,16 @@ def update_config():
         with open(config_path, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
-        return jsonify({'success': True, 'message': 'Configuration updated'})
+        print(f"✅ Config saved successfully. Mode: {config.get('mode', 'unknown')}")
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Configuration updated',
+            'mode': config.get('mode')
+        })
     
     except Exception as e:
+        print(f"❌ Error updating config: {e}")
         return jsonify({'error': str(e)}), 500
 
 

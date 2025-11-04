@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCharts();
     loadInitialData();
     setupEventListeners();
+    loadTradingMode(); // Load and display current trading mode
 });
 
 // Socket.IO Event Handlers
@@ -559,6 +560,28 @@ function formatPercent(num) {
 
 function formatSOL(num) {
     return `${num.toFixed(4)} SOL`;
+}
+
+// Load Trading Mode
+async function loadTradingMode() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        const mode = config.mode || 'dry_run';
+        
+        const modeBadge = document.getElementById('tradingModeBadge');
+        if (mode === 'live') {
+            modeBadge.innerHTML = '💰 Live Trading Mode';
+            modeBadge.className = 'badge badge-danger';
+            console.log('🔴 Trading Mode: LIVE');
+        } else {
+            modeBadge.innerHTML = '🧪 Dry Run Mode';
+            modeBadge.className = 'badge badge-info';
+            console.log('🧪 Trading Mode: DRY RUN');
+        }
+    } catch (error) {
+        console.error('Error loading trading mode:', error);
+    }
 }
 
 // Auto-refresh trades every 10 seconds
