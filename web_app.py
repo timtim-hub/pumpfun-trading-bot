@@ -115,6 +115,7 @@ class WebTradingBot:
         """Emit bot status update via WebSocket"""
         try:
             if not self.trading_engine:
+                print("⚠️  No trading engine, skipping update")
                 return
                 
             metrics = self.trading_engine.metrics
@@ -122,10 +123,14 @@ class WebTradingBot:
             # Calculate true current capital (available + positions value)
             current_capital = self.trading_engine.available_capital
             
+            print(f"📊 Available Capital: {current_capital:.4f} SOL")
+            print(f"📊 Active Positions: {len(self.trading_engine.active_positions)}")
+            
             # Add value of open positions
             for position in self.trading_engine.active_positions.values():
                 position_value = position.current_price * position.entry_token_amount
                 current_capital += position_value
+                print(f"   + Position {position.token.symbol}: {position_value:.4f} SOL")
             
             # Update metrics with current capital
             metrics.update_capital(current_capital)
@@ -136,6 +141,10 @@ class WebTradingBot:
                 roi = ((current_capital - metrics.initial_capital_sol) / metrics.initial_capital_sol) * 100
             else:
                 roi = 0.0
+            
+            print(f"📊 Total Capital: {current_capital:.4f} SOL")
+            print(f"📊 ROI: {roi:.2f}%")
+            print(f"📊 Trades: {metrics.total_trades} (W:{metrics.winning_trades} L:{metrics.losing_trades})")
             
             update_data = {
                 'running': self.running,
@@ -177,8 +186,12 @@ class WebTradingBot:
                 ]
             }
             
+            print(f"🔔 Emitting update via WebSocket...")
             socketio.emit('bot_update', update_data)
+            print(f"✅ Update emitted successfully!")
+            
         except Exception as e:
+            print(f"❌ Error emitting update: {e}")
             self.logger.error(f"Error emitting update: {e}")
     
     async def stop(self):

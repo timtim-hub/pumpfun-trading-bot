@@ -24,18 +24,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Socket.IO Event Handlers
 socket.on('connect', () => {
-    console.log('Connected to server');
+    console.log('🔌 Connected to WebSocket server');
+    console.log('Socket ID:', socket.id);
     showToast('Connected', 'WebSocket connection established', 'success');
 });
 
 socket.on('disconnect', () => {
-    console.log('Disconnected from server');
+    console.log('🔌 Disconnected from WebSocket server');
     showToast('Disconnected', 'Lost connection to server', 'error');
     updateStatus(false);
 });
 
 socket.on('bot_update', (data) => {
-    console.log('Bot update received:', data);
+    console.log('📨 ==========================================');
+    console.log('📨 BOT UPDATE RECEIVED at', new Date().toLocaleTimeString());
+    console.log('📨 Data:', JSON.stringify(data, null, 2));
+    console.log('📨 Capital:', data.capital.current, 'SOL');
+    console.log('📨 ROI:', data.capital.roi, '%');
+    console.log('📨 ==========================================');
     updateDashboard(data);
 });
 
@@ -85,21 +91,28 @@ function setupEventListeners() {
 
 // Update Dashboard with Bot Data
 function updateDashboard(data) {
-    console.log('Updating dashboard with data:', data);
+    console.log('🎨 UPDATING DASHBOARD...');
+    console.log('🎨 Current data:', data);
     
-    // Update capital metrics with animation
-    const currentCapitalEl = document.getElementById('currentCapital');
-    const oldValue = parseFloat(currentCapitalEl.textContent);
-    const newValue = data.capital.current;
-    
-    if (oldValue !== newValue) {
-        currentCapitalEl.style.animation = 'pulse 0.5s ease-in-out';
-        setTimeout(() => currentCapitalEl.style.animation = '', 500);
-    }
-    
-    currentCapitalEl.textContent = `${newValue.toFixed(4)} SOL`;
-    document.getElementById('initialCapital').textContent = data.capital.initial.toFixed(4);
-    document.getElementById('peakCapital').textContent = data.capital.peak.toFixed(4);
+    try {
+        // Update capital metrics with animation
+        const currentCapitalEl = document.getElementById('currentCapital');
+        const oldValue = parseFloat(currentCapitalEl.textContent);
+        const newValue = data.capital.current;
+        
+        console.log('🎨 Old capital:', oldValue, '→ New capital:', newValue);
+        
+        if (oldValue !== newValue) {
+            currentCapitalEl.style.animation = 'pulse 0.5s ease-in-out';
+            setTimeout(() => currentCapitalEl.style.animation = '', 500);
+            console.log('🎨 ✨ Capital changed! Animation triggered');
+        }
+        
+        currentCapitalEl.textContent = `${newValue.toFixed(4)} SOL`;
+        document.getElementById('initialCapital').textContent = data.capital.initial.toFixed(4);
+        document.getElementById('peakCapital').textContent = data.capital.peak.toFixed(4);
+        
+        console.log('🎨 ✅ Capital updated in DOM');
     
     const roiValue = data.capital.roi;
     const roiElement = document.getElementById('roi');
