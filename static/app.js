@@ -216,10 +216,10 @@ function updatePositions(positions) {
     positionCount.textContent = positions.length;
     
     positionsList.innerHTML = positions.map(pos => {
-        // Pump.fun link for active positions
-        const pumpfunLink = pos.mint ? `https://pump.fun/coin/${pos.mint}` : '#';
+        // Blockchain explorer link for active positions
+        const explorerLink = pos.mint ? `https://explorer.solana.com/address/${pos.mint}?cluster=mainnet` : '#';
         const tokenDisplay = pos.mint
-            ? `<h4><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${pos.symbol}</a> 🔗</h4>`
+            ? `<h4><a href="${explorerLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${pos.symbol}</a> 🔗</h4>`
             : `<h4>${pos.symbol}</h4>`;
         
         return `
@@ -497,10 +497,10 @@ function displayTrades(trades) {
         const outcomeClass = trade.outcome === 'profit' ? 'outcome-profit' : 'outcome-loss';
         const time = new Date(trade.timestamp).toLocaleTimeString();
         
-        // Pump.fun link
-        const pumpfunLink = trade.mint ? `https://pump.fun/coin/${trade.mint}` : '#';
+        // Blockchain explorer link (Solana Explorer)
+        const explorerLink = trade.mint ? `https://explorer.solana.com/address/${trade.mint}?cluster=mainnet` : '#';
         const tokenDisplay = trade.mint 
-            ? `<strong><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${trade.symbol}</a> 🔗</strong>`
+            ? `<strong><a href="${explorerLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${trade.symbol}</a> 🔗</strong>`
             : `<strong>${trade.symbol}</strong>`;
         
         return `
