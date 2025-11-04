@@ -8,6 +8,15 @@ An intelligent, automated trading bot for Pump.fun meme tokens on the Solana blo
 
 ## ✨ Features
 
+### 🌐 **NEW: Web Dashboard**
+- **Beautiful Real-Time UI**: Modern dark theme with live metrics
+- **Settings Page**: Easy configuration without editing files
+- **Mode Switcher**: Toggle between dry-run and live trading with safety checks
+- **Live Updates**: WebSocket-powered real-time data (auto-refresh every 2 seconds)
+- **Interactive Charts**: Performance tracking and P&L distribution
+- **Bot Controls**: Start/Stop from the browser
+- **Trade History**: Complete log with filtering options
+
 ### 🎯 Core Trading Capabilities
 - **Real-time Launch Detection**: Monitors Solana blockchain for new Pump.fun token launches via WebSocket
 - **Intelligent Entry Strategy**: Evaluates early momentum, volume, and bonding curve progress before entering
@@ -87,30 +96,61 @@ python bot.py --create-keypair wallet.json
 # Send SOL to the displayed public key address
 ```
 
-### 4. Test in Dry-Run Mode
+### 4. Launch the Web Dashboard
 
-Start with dry-run mode to test the strategy without risking real funds:
+Start the beautiful web interface:
 
 ```bash
-# Ensure config.yaml has mode: dry_run
-python bot.py
+python web_app.py
 ```
 
-The bot will simulate trading with mock tokens and price movements.
+Then open your browser to **http://localhost:5001**
 
-### 5. Go Live (When Ready)
+### 5. Test in Dry-Run Mode
+
+The dashboard starts in dry-run mode by default (safe testing with simulated data).
+
+1. Click **"▶ Start Bot"** in the dashboard
+2. Watch metrics update in real-time
+3. View trades in the history table
+4. Monitor performance charts
+
+### 6. Go Live (When Ready)
 
 **⚠️ Only after thorough testing!**
 
+1. Click **"⚙️ Settings"** in the dashboard
+2. Select **"Live Trading Mode"**
+3. Configure your wallet path
+4. Click **"Check Balance"** to verify funds
+5. **Save Settings** (you'll get a safety warning)
+6. Return to dashboard and start the bot
+
+Or use command line:
 ```bash
-# Change config.yaml to mode: live
-# OR override via command line:
 python bot.py --mode live
 ```
 
 ## 📖 Usage
 
-### Basic Commands
+### Web Dashboard (Recommended)
+
+```bash
+# Start the web interface
+python web_app.py
+
+# Access at http://localhost:5001
+```
+
+**Dashboard Features:**
+- 📊 Real-time metrics and charts
+- 🎮 Start/Stop bot controls
+- ⚙️ Settings page for configuration
+- 💰 Mode switcher (dry-run ↔ live trading)
+- 📜 Trade history with filtering
+- 🎯 Active positions monitor
+
+### Command Line
 
 ```bash
 # Run bot with default config
