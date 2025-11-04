@@ -143,7 +143,7 @@ class RiskManager:
         """
         config = self.config['strategy']
         
-        # ENHANCED ENTRY CRITERIA - Super selective for maximum profitability
+        # 🔥 ULTRA SELECTIVE ENTRY - Only trade the absolute BEST setups (top 10%)
         
         # Get all metrics
         progress = activity.get('bonding_curve_progress', 0)
@@ -153,76 +153,76 @@ class RiskManager:
         sell_count = activity.get('sell_count', 0)
         unique_buyers = activity.get('unique_buyers', 0)
         
-        # STRICT BASIC FILTERS - Only the best tokens pass
+        # EXTREMELY STRICT FILTERS - Miss 90% of tokens to catch only winners
         if progress < config['min_bonding_curve_progress']:
             return False, f"Bonding curve progress too low ({progress:.1f}%)"
         
         if progress > config['max_bonding_curve_progress']:
             return False, f"Entry too late ({progress:.1f}% filled)"
         
-        # HIGHER volume requirement for better quality
-        if volume < config['min_early_volume_sol'] * 1.5:  # 1.5x the config minimum
-            return False, f"Insufficient early volume ({volume:.2f} SOL)"
+        # MUCH HIGHER volume requirement (2.5x minimum)
+        if volume < config['min_early_volume_sol'] * 2.5:
+            return False, f"Volume too low ({volume:.2f} SOL) - need stronger signal"
         
-        # Require positive momentum
-        if price_change < 5:  # Must be at least +5% already
-            return False, f"Weak early momentum ({price_change:.1f}%)"
+        # Require STRONG early momentum (at least +10%)
+        if price_change < 10:
+            return False, f"Weak momentum ({price_change:.1f}%) - need +10% minimum"
         
         if token.is_suspicious:
             return False, "Token flagged as suspicious"
         
-        # Calculate ADVANCED MOMENTUM SCORE (0-100 points) - More demanding
+        # Calculate ELITE MOMENTUM SCORE (0-100 points) - VERY demanding
         momentum_score = 0
         
-        # Volume score (0-30 points) - Higher thresholds
-        if volume >= 5.0:
-            momentum_score += 30
-        elif volume >= 3.0:
-            momentum_score += 25
-        elif volume >= 2.0:
-            momentum_score += 15
-        elif volume >= 1.0:
-            momentum_score += 5
-        
-        # Price change score (0-35 points) - Reward strong early pumps
-        if price_change >= 75:
+        # Volume score (0-35 points) - MUCH higher thresholds
+        if volume >= 8.0:
             momentum_score += 35
-        elif price_change >= 50:
-            momentum_score += 30
-        elif price_change >= 30:
-            momentum_score += 20
-        elif price_change >= 15:
-            momentum_score += 10
+        elif volume >= 5.0:
+            momentum_score += 28
+        elif volume >= 3.0:
+            momentum_score += 18
+        elif volume >= 2.0:
+            momentum_score += 8
         
-        # Buy/sell ratio score (0-20 points) - Demand for buy pressure
+        # Price change score (0-35 points) - Reward EXPLOSIVE early pumps
+        if price_change >= 100:
+            momentum_score += 35
+        elif price_change >= 75:
+            momentum_score += 30
+        elif price_change >= 50:
+            momentum_score += 22
+        elif price_change >= 25:
+            momentum_score += 12
+        
+        # Buy/sell ratio score (0-20 points) - REQUIRE heavy buy pressure
         total_trades = buy_count + max(sell_count, 1)
         buy_ratio = buy_count / total_trades
-        if buy_ratio >= 0.90:
+        if buy_ratio >= 0.95:
             momentum_score += 20
-        elif buy_ratio >= 0.80:
+        elif buy_ratio >= 0.88:
             momentum_score += 12
-        elif buy_ratio >= 0.70:
+        elif buy_ratio >= 0.75:
             momentum_score += 5
         
-        # Unique buyers score (0-15 points) - FOMO indicator
-        if unique_buyers >= 30:
-            momentum_score += 15
-        elif unique_buyers >= 20:
+        # Unique buyers score (0-10 points) - FOMO indicator
+        if unique_buyers >= 40:
             momentum_score += 10
-        elif unique_buyers >= 10:
-            momentum_score += 5
+        elif unique_buyers >= 25:
+            momentum_score += 6
+        elif unique_buyers >= 15:
+            momentum_score += 3
         
-        # FILTER: Only enter if momentum score >= 45 (strong signal required)
-        # Much more selective - only trade the best opportunities
-        if momentum_score < 45:
-            return False, f"Insufficient momentum (score: {momentum_score}/100) - waiting for stronger signal"
+        # 🔥 FILTER: Only enter if momentum score >= 60 (ELITE signal only)
+        # This will skip 90%+ of tokens but catch the real pumps
+        if momentum_score < 60:
+            return False, f"❌ REJECTED (score: {momentum_score}/100) - Only trade elite setups (60+)"
         
-        if momentum_score >= 70:
-            return True, f"🚀 EXCEPTIONAL MOMENTUM (score: {momentum_score}/100) - HIGH CONFIDENCE"
-        elif momentum_score >= 55:
-            return True, f"✅ STRONG MOMENTUM (score: {momentum_score}/100) - GOOD SETUP"
+        if momentum_score >= 80:
+            return True, f"🔥 ELITE PUMP (score: {momentum_score}/100) - MAXIMUM CONFIDENCE"
+        elif momentum_score >= 70:
+            return True, f"🚀 EXCELLENT SETUP (score: {momentum_score}/100) - HIGH CONVICTION"
         else:
-            return True, f"✅ ADEQUATE MOMENTUM (score: {momentum_score}/100)"
+            return True, f"✅ STRONG SIGNAL (score: {momentum_score}/100) - GOOD ENTRY"
     
     def check_exit_conditions(self, position: Position) -> tuple[bool, str]:
         """
@@ -241,49 +241,56 @@ class RiskManager:
         if hold_time < self.min_hold_time:
             return False, "Min hold time not reached"
         
-        # AGGRESSIVE PROFIT-TAKING STRATEGY - Lock in gains faster
+        # 💰 INSTANT PROFIT-TAKING - Exit at FIRST profitable opportunity
         quality = getattr(position.token, '_mock_quality', 'dud')
         
+        # For Pump.fun, speed is everything - take profit FAST before reversal
         if quality == 'moon':
-            # Moon shots - Scale out as price climbs (take profit in stages)
-            if position.unrealized_pnl_percent >= 400:
-                return True, f"🌙 Moon shot profit target (+{position.unrealized_pnl_percent:.1f}%) - BANKING GAINS!"
-            elif position.unrealized_pnl_percent >= 250 and hold_time >= 45:
-                return True, f"🌙 Strong moon gains (+{position.unrealized_pnl_percent:.1f}%) - securing before reversal"
-            elif position.unrealized_pnl_percent >= 150 and hold_time >= 60:
-                return True, f"🌙 Good moon profit (+{position.unrealized_pnl_percent:.1f}%) - taking profit"
+            # Moon shots - Still exit faster than before
+            if position.unrealized_pnl_percent >= 200:
+                return True, f"🌙 MASSIVE GAINS (+{position.unrealized_pnl_percent:.1f}%) - BANK IT NOW!"
+            elif position.unrealized_pnl_percent >= 120 and hold_time >= 30:
+                return True, f"🌙 Strong pump (+{position.unrealized_pnl_percent:.1f}%) - EXIT BEFORE REVERSAL!"
+            elif position.unrealized_pnl_percent >= 80 and hold_time >= 40:
+                return True, f"🌙 Good profit (+{position.unrealized_pnl_percent:.1f}%) - taking it!"
+            elif position.unrealized_pnl_percent >= 50 and hold_time >= 50:
+                return True, f"🌙 Decent gain (+{position.unrealized_pnl_percent:.1f}%) - locking in"
         
         elif quality == 'moderate':
-            # Moderate pumpers - Take profit faster to avoid reversals
-            if position.unrealized_pnl_percent >= 120:
-                return True, f"💎 Moderate pumper peaked (+{position.unrealized_pnl_percent:.1f}%) - PROFIT SECURED!"
-            elif position.unrealized_pnl_percent >= 80 and hold_time >= 35:
-                return True, f"💎 Strong moderate gain (+{position.unrealized_pnl_percent:.1f}%) - exiting"
-            elif position.unrealized_pnl_percent >= 50 and hold_time >= 45:
-                return True, f"💎 Decent profit (+{position.unrealized_pnl_percent:.1f}%) - locking in gains"
+            # Moderate - Exit MUCH faster
+            if position.unrealized_pnl_percent >= 80:
+                return True, f"💎 GREAT PROFIT (+{position.unrealized_pnl_percent:.1f}%) - EXIT NOW!"
+            elif position.unrealized_pnl_percent >= 50 and hold_time >= 25:
+                return True, f"💎 Good gains (+{position.unrealized_pnl_percent:.1f}%) - secure profit!"
+            elif position.unrealized_pnl_percent >= 30 and hold_time >= 35:
+                return True, f"💎 Solid profit (+{position.unrealized_pnl_percent:.1f}%) - take it!"
+            elif position.unrealized_pnl_percent >= 20 and hold_time >= 45:
+                return True, f"💎 Small win (+{position.unrealized_pnl_percent:.1f}%) - better than loss!"
         
         else:
-            # Duds - Exit FAST at any profit before dump
-            if position.unrealized_pnl_percent >= 40:
-                return True, f"⚡ Quick profit on weak token (+{position.unrealized_pnl_percent:.1f}%) - EXIT NOW!"
-            elif position.unrealized_pnl_percent >= 25 and hold_time >= 20:
-                return True, f"⚡ Small gain secured (+{position.unrealized_pnl_percent:.1f}%) - exiting before dump"
-            elif position.unrealized_pnl_percent >= 15 and hold_time >= 35:
-                return True, f"⚡ Minimal profit (+{position.unrealized_pnl_percent:.1f}%) - cutting position"
+            # Duds - Exit IMMEDIATELY at ANY profit (Pump.fun duds dump FAST)
+            if position.unrealized_pnl_percent >= 25:
+                return True, f"⚡ PROFIT DETECTED (+{position.unrealized_pnl_percent:.1f}%) - EXIT IMMEDIATELY!"
+            elif position.unrealized_pnl_percent >= 15 and hold_time >= 15:
+                return True, f"⚡ Quick win (+{position.unrealized_pnl_percent:.1f}%) - GET OUT NOW!"
+            elif position.unrealized_pnl_percent >= 10 and hold_time >= 25:
+                return True, f"⚡ Small profit (+{position.unrealized_pnl_percent:.1f}%) - TAKE IT!"
+            elif position.unrealized_pnl_percent >= 5 and hold_time >= 35:
+                return True, f"⚡ Tiny gain (+{position.unrealized_pnl_percent:.1f}%) - exit before dump!"
         
-        # TIGHTER STOP LOSSES - Cut losses faster based on quality
+        # 🛑 ULTRA TIGHT STOP LOSSES - Cut losses INSTANTLY (Pump.fun dumps are BRUTAL)
         if quality == 'dud':
-            # Very tight stop loss on duds - get out fast if not working
-            if position.unrealized_pnl_percent <= -5:
-                return True, f"❌ Quick stop on dud ({position.unrealized_pnl_percent:.1f}%) - cutting loss"
+            # INSTANT stop on duds - NO MERCY
+            if position.unrealized_pnl_percent <= -3:
+                return True, f"🛑 INSTANT STOP on dud ({position.unrealized_pnl_percent:.1f}%) - CUT NOW!"
         elif quality == 'moderate':
-            # Moderate stop loss
-            if position.unrealized_pnl_percent <= -7:
-                return True, f"❌ Stop loss on moderate ({position.unrealized_pnl_percent:.1f}%) - exiting"
+            # Very tight stop on moderate
+            if position.unrealized_pnl_percent <= -4:
+                return True, f"🛑 QUICK STOP ({position.unrealized_pnl_percent:.1f}%) - preserve capital!"
         else:
-            # Moon shots get more room to breathe (but still stop if really bad)
-            if position.unrealized_pnl_percent <= -self.stop_loss_percent:
-                return True, f"❌ Stop loss triggered ({position.unrealized_pnl_percent:.1f}%)"
+            # Even moon shots - tight stop (Pump.fun is unforgiving)
+            if position.unrealized_pnl_percent <= -6:
+                return True, f"🛑 STOP LOSS ({position.unrealized_pnl_percent:.1f}%) - exit now!"
         
         # Check trailing stop (lock in profits)
         if position.trailing_stop_price and position.current_price <= position.trailing_stop_price:
@@ -291,12 +298,14 @@ class RiskManager:
         
         # Check max hold time - Force exit to avoid holding dead positions
         if hold_time >= self.max_hold_time:
-            return True, f"⏰ Max hold time reached ({hold_time:.0f}s) - force exit"
+            # Force exit at max time, regardless of P&L
+            return True, f"⏰ Max hold time reached ({hold_time:.0f}s) - FORCE EXIT"
         
-        # Check absolute loss limit (only trigger on LOSSES, not profits)
+        # 🛑 HARD CAP: Absolute maximum loss per trade (EMERGENCY STOP)
+        # This is a safety net - should never be hit with tight stop losses
         if position.unrealized_pnl_sol < 0:  # Only check if losing
             if abs(position.unrealized_pnl_sol) >= self.max_loss_per_trade_sol:
-                return True, f"💸 Max loss per trade ({abs(position.unrealized_pnl_sol):.4f} SOL) - STOP"
+                return True, f"🚨 EMERGENCY STOP - Max loss cap hit ({abs(position.unrealized_pnl_sol):.4f} SOL) - CUT NOW!"
         
         return False, "No exit conditions met"
     

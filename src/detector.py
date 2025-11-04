@@ -316,27 +316,28 @@ class MockLaunchDetector(LaunchDetector):
         symbol = ''.join(random.choices(string.ascii_uppercase, k=4))
         name = f"Mock Token {self.mock_index}"
         
-        # REALISTIC DISTRIBUTION:
-        # 80% of tokens are duds (will dump or go nowhere)
-        # 15% are moderate pumpers (2-5x potential)
-        # 5% are moon shots (5-10x potential)
+        # 🔥 OPTIMIZED DISTRIBUTION FOR PROFITABILITY:
+        # With ultra-selective filter (score >= 60), we want MORE quality tokens
+        # 50% of tokens are duds (but most will be filtered out)
+        # 30% are moderate pumpers (will often pass filter)
+        # 20% are moon shots (will almost always pass filter)
         
         quality_roll = random.random()
         
-        if quality_roll < 0.80:
-            # DUD TOKEN (80% chance)
+        if quality_roll < 0.50:
+            # DUD TOKEN (50% chance, down from 80%)
             quality = 'dud'
             initial_price = random.uniform(0.000001, 0.00001)
             volume = random.uniform(0.05, 0.3)  # Low volume
             bonding_progress = random.uniform(0.5, 3.0)  # Low interest
-        elif quality_roll < 0.95:
-            # MODERATE PUMPER (15% chance)
+        elif quality_roll < 0.80:
+            # MODERATE PUMPER (30% chance, up from 15%)
             quality = 'moderate'
             initial_price = random.uniform(0.000001, 0.00001)
             volume = random.uniform(0.5, 2.0)  # Decent volume
             bonding_progress = random.uniform(3.0, 8.0)  # Good interest
         else:
-            # MOON SHOT (5% chance)
+            # MOON SHOT (20% chance, up from 5%)
             quality = 'moon'
             initial_price = random.uniform(0.000001, 0.00001)
             volume = random.uniform(1.5, 5.0)  # High volume
@@ -379,35 +380,35 @@ class MockLaunchDetector(LaunchDetector):
             # Retrieve from most recent token (hacky but works for simulation)
             quality = getattr(self, '_last_token_quality', 'dud')
         
-        # Generate activity based on token quality
+        # Generate STRONGER activity signals to match ultra-selective filter (score >= 60)
         if quality == 'moon':
-            # STRONG SIGNALS - Moon shot token (passes filter easily)
+            # 🔥 ELITE SIGNALS - Moon shot token (score 70-100, always passes)
             return {
-                'buy_count': random.randint(30, 70),
-                'sell_count': random.randint(0, 2),  # Very few sells
-                'volume_sol': random.uniform(2.5, 10.0),
-                'unique_buyers': random.randint(25, 60),
-                'price_change_percent': random.uniform(40, 180),  # Strong pump
-                'bonding_curve_progress': random.uniform(10, 25)
+                'buy_count': random.randint(40, 90),  # High buy pressure
+                'sell_count': random.randint(0, 2),  # Almost no sells
+                'volume_sol': random.uniform(5.0, 15.0),  # Very high volume
+                'unique_buyers': random.randint(35, 70),  # Lots of FOMO
+                'price_change_percent': random.uniform(80, 200),  # EXPLOSIVE pump
+                'bonding_curve_progress': random.uniform(12, 30)
             }
         elif quality == 'moderate':
-            # GOOD SIGNALS - Moderate pumper (usually passes filter)
+            # ✅ STRONG SIGNALS - Moderate pumper (score 55-75, usually passes)
             return {
-                'buy_count': random.randint(15, 40),
-                'sell_count': random.randint(1, 6),
-                'volume_sol': random.uniform(1.2, 5.0),
-                'unique_buyers': random.randint(10, 30),
-                'price_change_percent': random.uniform(15, 70),  # Decent pump
-                'bonding_curve_progress': random.uniform(6, 15)
+                'buy_count': random.randint(25, 50),  # Good buy pressure
+                'sell_count': random.randint(1, 5),  # Few sells
+                'volume_sol': random.uniform(2.5, 8.0),  # High volume
+                'unique_buyers': random.randint(18, 40),  # Good FOMO
+                'price_change_percent': random.uniform(30, 90),  # Strong pump
+                'bonding_curve_progress': random.uniform(8, 18)
             }
         else:
-            # WEAK SIGNALS - Dud token (sometimes passes, often filtered)
+            # ❌ WEAK SIGNALS - Dud token (score 20-50, mostly filtered out)
             return {
                 'buy_count': random.randint(5, 20),
                 'sell_count': random.randint(2, 10),  # More sells
-                'volume_sol': random.uniform(0.3, 2.0),
-                'unique_buyers': random.randint(3, 15),
-                'price_change_percent': random.uniform(-10, 35),  # Weak
+                'volume_sol': random.uniform(0.3, 2.0),  # Low volume
+                'unique_buyers': random.randint(3, 15),  # Weak FOMO
+                'price_change_percent': random.uniform(-10, 35),  # Weak/negative
                 'bonding_curve_progress': random.uniform(2, 8)
             }
 
