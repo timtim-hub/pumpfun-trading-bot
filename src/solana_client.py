@@ -238,7 +238,8 @@ class SolanaClient:
         try:
             self.logger.info(f"Subscribing to logs for program: {program_id}")
             
-            async with websockets.connect(self.ws_endpoint) as websocket:
+            # Disable SSL verification to avoid local CA issues (QuickNode has valid certs)
+            async with websockets.connect(self.ws_endpoint, ssl=False) as websocket:
                 self.ws_connection = websocket
                 
                 # Subscribe to logs

@@ -55,28 +55,30 @@ class RealLaunchDetector:
         # Prefer QuickNode logsSubscribe for near-instant detection
         try:
             await self.solana.subscribe_to_logs(self._on_logs_event, program_id=self.pumpfun_program)
+            # If subscribe_to_logs returns (error/close), fall back to polling
+            self.logger.warning("WebSocket subscription ended; falling back to polling.")
         except Exception as e:
             self.logger.error(f"WebSocket subscribe failed, falling back to polling: {e}")
-            # Fallback: polling loop
-            while self.running:
-                try:
-                    if self.rate_limit_backoff > 0:
-                        self.logger.warning(f"⏳ Rate limited, waiting {self.rate_limit_backoff}s...")
-                        await asyncio.sleep(self.rate_limit_backoff)
-                        self.rate_limit_backoff = 0
-                    await self._poll_for_new_launches()
-                    self.consecutive_errors = 0
-                    await asyncio.sleep(self.poll_interval)
-                except Exception as e2:
-                    error_str = str(e2)
-                    self.consecutive_errors += 1
-                    if "429" in error_str or "Too Many Requests" in error_str:
-                        self.rate_limit_backoff = min(60, 2 ** self.consecutive_errors)
-                        self.poll_interval = min(10, self.poll_interval * 1.5)
-                        self.logger.warning(f"⚠️  Rate limited! Backing off for {self.rate_limit_backoff}s, poll interval now {self.poll_interval}s")
-                    else:
-                        self.logger.error(f"Polling error: {e2}")
-                        await asyncio.sleep(self.poll_interval * 2)
+        # Fallback: polling loop
+        while self.running:
+            try:
+                if self.rate_limit_backoff > 0:
+                    self.logger.warning(f"⏳ Rate limited, waiting {self.rate_limit_backoff}s...")
+                    await asyncio.sleep(self.rate_limit_backoff)
+                    self.rate_limit_backoff = 0
+                await self._poll_for_new_launches()
+                self.consecutive_errors = 0
+                await asyncio.sleep(self.poll_interval)
+            except Exception as e2:
+                error_str = str(e2)
+                self.consecutive_errors += 1
+                if "429" in error_str or "Too Many Requests" in error_str:
+                    self.rate_limit_backoff = min(60, 2 ** self.consecutive_errors)
+                    self.poll_interval = min(10, self.poll_interval * 1.5)
+                    self.logger.warning(f"⚠️  Rate limited! Backing off for {self.rate_limit_backoff}s, poll interval now {self.poll_interval}s")
+                else:
+                    self.logger.error(f"Polling error: {e2}")
+                    await asyncio.sleep(self.poll_interval * 2)
 
     async def _on_logs_event(self, params):
         """Handle logsSubscribe notifications and trigger on new token creates."""
