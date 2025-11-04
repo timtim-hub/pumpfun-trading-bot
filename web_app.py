@@ -69,6 +69,13 @@ class WebTradingBot:
         """Initialize all components"""
         self.logger.info("Initializing bot components...")
         
+        # Get mode from config
+        current_mode = self.config.get('mode', 'dry_run')
+        is_dry_run = (current_mode == 'dry_run')
+        
+        self.logger.info(f"📊 Mode: {current_mode.upper()}")
+        self.logger.info(f"🎯 Dry Run: {is_dry_run}")
+        
         # Initialize Solana client
         self.solana_client = SolanaClient(
             rpc_endpoint=self.config.get('solana.rpc_endpoint'),
@@ -83,26 +90,34 @@ class WebTradingBot:
         # Initialize Pump.fun client
         self.pumpfun_client = PumpFunClient(self.solana_client)
         
-        # Initialize detector (mock for now)
-        self.detector = MockLaunchDetector(
-            self.solana_client,
-            self.pumpfun_client
-        )
+        # Initialize detector based on mode
+        if is_dry_run:
+            self.detector = MockLaunchDetector(
+                self.solana_client,
+                self.pumpfun_client
+            )
+            self.logger.info("🧪 Using Mock Launch Detector (Dry Run)")
+        else:
+            self.detector = LaunchDetector(
+                self.solana_client,
+                self.pumpfun_client
+            )
+            self.logger.info("🔴 Using Real Launch Detector (Live Trading)")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
         
-        # Initialize trading engine
+        # Initialize trading engine with mode from config
         self.trading_engine = TradingEngine(
             config=self.config,
             solana_client=self.solana_client,
             pumpfun_client=self.pumpfun_client,
             detector=self.detector,
             risk_manager=self.risk_manager,
-            dry_run=True  # Always dry-run for web demo
+            dry_run=is_dry_run  # Use mode from config
         )
         
-        self.logger.info("✅ All components initialized")
+        self.logger.info(f"✅ All components initialized in {'DRY RUN' if is_dry_run else 'LIVE'} mode")
     
     async def start(self):
         """Start the trading bot"""
@@ -629,6 +644,15 @@ def handle_start_bot():
     
     def run_bot():
         print("🔧 Initializing bot...")
+        
+        # Check current mode from config
+        import yaml
+        with open('config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        
+        current_mode = config.get('mode', 'dry_run')
+        print(f"📊 Starting bot in {current_mode.upper()} mode")
+        
         bot = WebTradingBot()
         bot_state['bot'] = bot
         bot_state['config'] = bot.config

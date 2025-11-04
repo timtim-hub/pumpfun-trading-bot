@@ -580,8 +580,52 @@ async function loadTradingMode() {
         updateModeLabels(mode);
         
         console.log(`📊 Trading Mode Loaded: ${mode === 'live' ? 'LIVE' : 'DRY RUN'}`);
+        
+        // If live mode, load real wallet balance
+        if (mode === 'live') {
+            await loadLiveWalletBalance();
+        }
     } catch (error) {
         console.error('Error loading trading mode:', error);
+    }
+}
+
+// Load real wallet balance for live mode
+async function loadLiveWalletBalance() {
+    try {
+        console.log('💰 Loading real wallet balance for live mode...');
+        
+        const response = await fetch('/api/wallet/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet_path: 'wallet.json' })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const realBalance = data.balance;
+            console.log(`💰 Real Wallet Balance: ${realBalance.toFixed(4)} SOL`);
+            
+            // Update dashboard with real balance
+            document.getElementById('currentCapital').textContent = `${realBalance.toFixed(4)} SOL`;
+            document.getElementById('initialCapital').textContent = realBalance.toFixed(4);
+            document.getElementById('peakCapital').textContent = realBalance.toFixed(4);
+            
+            // Add live mode indicator
+            const capitalCard = document.querySelector('.capital-card .card-header h3');
+            if (capitalCard && !capitalCard.textContent.includes('LIVE')) {
+                capitalCard.innerHTML = '💰 Capital <span style="color: #ef4444; font-size: 12px;">(LIVE WALLET)</span>';
+            }
+            
+            showToast('Success', `Live wallet balance loaded: ${realBalance.toFixed(4)} SOL`, 'success');
+        } else {
+            console.error('Failed to load wallet balance:', data.error);
+            showToast('Warning', 'Could not load live wallet balance. Please check your wallet setup.', 'warning');
+        }
+    } catch (error) {
+        console.error('Error loading live wallet balance:', error);
+        showToast('Error', 'Failed to query wallet balance', 'error');
     }
 }
 
@@ -648,14 +692,23 @@ async function handleModeToggle(event) {
             updateModeLabels(newMode);
             showToast(
                 'Success', 
-                `Switched to ${isLive ? '💰 Live Trading' : '🧪 Dry Run'} mode. Refreshing data...`, 
+                `Switched to ${isLive ? '💰 Live Trading' : '🧪 Dry Run'} mode. Loading ${isLive ? 'real wallet balance' : 'demo balance'}...`, 
                 'success'
             );
             
-            // Refresh dashboard data
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
+            // If switching to live, load real balance
+            if (isLive) {
+                setTimeout(async () => {
+                    await loadLiveWalletBalance();
+                    // Small delay to show the updated balance before reload
+                    setTimeout(() => location.reload(), 2000);
+                }, 500);
+            } else {
+                // Refresh dashboard data for dry run
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }
         } else {
             throw new Error(data.error || 'Failed to switch mode');
         }
