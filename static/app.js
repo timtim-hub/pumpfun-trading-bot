@@ -1,0 +1,472 @@
+// Pump.fun Trading Bot - Dashboard JavaScript
+
+// Initialize Socket.IO connection
+const socket = io();
+
+// State
+let performanceChart = null;
+let pnlChart = null;
+let capitalHistory = [];
+let tradesData = [];
+
+// DOM Elements
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const statusIndicator = document.getElementById('statusIndicator');
+const statusText = document.getElementById('statusText');
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeCharts();
+    loadInitialData();
+    setupEventListeners();
+});
+
+// Socket.IO Event Handlers
+socket.on('connect', () => {
+    console.log('Connected to server');
+    showToast('Connected', 'WebSocket connection established', 'success');
+});
+
+socket.on('disconnect', () => {
+    console.log('Disconnected from server');
+    showToast('Disconnected', 'Lost connection to server', 'error');
+    updateStatus(false);
+});
+
+socket.on('bot_update', (data) => {
+    console.log('Bot update received:', data);
+    updateDashboard(data);
+});
+
+socket.on('bot_started', (data) => {
+    showToast('Bot Started', data.message, 'success');
+    updateStatus(true);
+});
+
+socket.on('bot_stopped', (data) => {
+    showToast('Bot Stopped', data.message, 'success');
+    updateStatus(false);
+});
+
+socket.on('error', (data) => {
+    showToast('Error', data.message, 'error');
+});
+
+// Event Listeners
+function setupEventListeners() {
+    startBtn.addEventListener('click', () => {
+        socket.emit('start_bot');
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<span class="btn-icon">⏳</span> Starting...';
+    });
+
+    stopBtn.addEventListener('click', () => {
+        socket.emit('stop_bot');
+        stopBtn.disabled = true;
+        stopBtn.innerHTML = '<span class="btn-icon">⏳</span> Stopping...';
+    });
+
+    document.getElementById('refreshTrades').addEventListener('click', loadTrades);
+    
+    document.getElementById('filterOutcome').addEventListener('change', (e) => {
+        filterTrades(e.target.value);
+    });
+
+    // Chart period buttons
+    document.querySelectorAll('.chart-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            updateChartPeriod(e.target.dataset.period);
+        });
+    });
+}
+
+// Update Dashboard with Bot Data
+function updateDashboard(data) {
+    // Update capital metrics
+    document.getElementById('currentCapital').textContent = `${data.capital.current} SOL`;
+    document.getElementById('initialCapital').textContent = data.capital.initial;
+    document.getElementById('peakCapital').textContent = data.capital.peak;
+    
+    const roiValue = data.capital.roi;
+    const roiElement = document.getElementById('roi');
+    roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue}%`;
+    roiElement.className = `metric-value ${roiValue >= 0 ? 'positive' : 'negative'}`;
+    
+    const capitalChange = document.getElementById('capitalChange');
+    capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue}%`;
+    capitalChange.className = `change ${roiValue >= 0 ? 'positive' : 'negative'}`;
+
+    // Update P&L
+    document.getElementById('totalPnl').textContent = data.pnl.total;
+    document.getElementById('netPnl').textContent = data.pnl.net;
+
+    // Update trades
+    document.getElementById('totalTrades').textContent = data.trades.total;
+    document.getElementById('winningTrades').textContent = data.trades.winning;
+    document.getElementById('losingTrades').textContent = data.trades.losing;
+    
+    const winRate = data.trades.win_rate;
+    document.getElementById('winRate').textContent = `${winRate}%`;
+
+    // Update activity
+    document.getElementById('tokensEvaluated').textContent = data.activity.evaluated;
+    document.getElementById('tokensSkipped').textContent = data.activity.skipped;
+    document.getElementById('activePositions').textContent = data.activity.active_positions;
+
+    // Update active positions
+    if (data.positions && data.positions.length > 0) {
+        updatePositions(data.positions);
+    } else {
+        document.getElementById('positionsCard').style.display = 'none';
+    }
+
+    // Update chart
+    capitalHistory.push({
+        time: new Date(data.timestamp),
+        capital: data.capital.current
+    });
+    
+    // Keep last 100 data points
+    if (capitalHistory.length > 100) {
+        capitalHistory.shift();
+    }
+    
+    updatePerformanceChart();
+
+    // Refresh trades periodically
+    if (Math.random() < 0.1) { // 10% chance each update
+        loadTrades();
+    }
+}
+
+// Update Status Indicator
+function updateStatus(running) {
+    if (running) {
+        statusIndicator.classList.add('active');
+        statusText.textContent = 'Running';
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'inline-flex';
+        stopBtn.disabled = false;
+    } else {
+        statusIndicator.classList.remove('active');
+        statusText.textContent = 'Stopped';
+        startBtn.style.display = 'inline-flex';
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<span class="btn-icon">▶</span> Start Bot';
+        stopBtn.style.display = 'none';
+    }
+}
+
+// Update Active Positions
+function updatePositions(positions) {
+    const positionsCard = document.getElementById('positionsCard');
+    const positionsList = document.getElementById('positionsList');
+    const positionCount = document.getElementById('positionCount');
+    
+    positionsCard.style.display = 'block';
+    positionCount.textContent = positions.length;
+    
+    positionsList.innerHTML = positions.map(pos => `
+        <div class="position-item">
+            <div class="position-info">
+                <h4>${pos.symbol}</h4>
+                <p>Entry: ${pos.entry_price.toFixed(8)} SOL | Current: ${pos.current_price.toFixed(8)} SOL | Hold: ${pos.hold_time}s</p>
+            </div>
+            <div class="position-pnl">
+                <div class="pnl-value ${pos.pnl_sol >= 0 ? 'positive' : 'negative'}">
+                    ${pos.pnl_sol >= 0 ? '+' : ''}${pos.pnl_sol.toFixed(4)} SOL
+                </div>
+                <div class="pnl-percent ${pos.pnl_percent >= 0 ? 'positive' : 'negative'}">
+                    ${pos.pnl_percent >= 0 ? '+' : ''}${pos.pnl_percent.toFixed(2)}%
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Initialize Charts
+function initializeCharts() {
+    // Performance Chart
+    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+    performanceChart = new Chart(perfCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Capital (SOL)',
+                data: [],
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(26, 31, 58, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#8b92b2',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#8b92b2',
+                        maxTicksLimit: 8
+                    }
+                },
+                y: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#8b92b2',
+                        callback: function(value) {
+                            return value.toFixed(4) + ' SOL';
+                        }
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+
+    // P&L Distribution Chart
+    const pnlCtx = document.getElementById('pnlChart').getContext('2d');
+    pnlChart = new Chart(pnlCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Wins', 'Losses', 'Breakeven'],
+            datasets: [{
+                data: [0, 0, 0],
+                backgroundColor: [
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(139, 146, 178, 0.8)'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#8b92b2',
+                        padding: 16,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(26, 31, 58, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#8b92b2',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            cutout: '70%'
+        }
+    });
+}
+
+// Update Performance Chart
+function updatePerformanceChart() {
+    if (!performanceChart || capitalHistory.length === 0) return;
+    
+    const labels = capitalHistory.map(d => {
+        const time = d.time;
+        return `${time.getHours()}:${String(time.getMinutes()).padStart(2, '0')}:${String(time.getSeconds()).padStart(2, '0')}`;
+    });
+    
+    const data = capitalHistory.map(d => d.capital);
+    
+    performanceChart.data.labels = labels;
+    performanceChart.data.datasets[0].data = data;
+    performanceChart.update('none');
+}
+
+// Update P&L Chart
+function updatePnlChart(wins, losses, breakeven) {
+    if (!pnlChart) return;
+    
+    pnlChart.data.datasets[0].data = [wins, losses, breakeven];
+    pnlChart.update();
+}
+
+// Load Initial Data
+async function loadInitialData() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        if (data.running) {
+            updateStatus(true);
+        }
+        
+        await loadTrades();
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+    }
+}
+
+// Load Trades
+async function loadTrades() {
+    try {
+        const response = await fetch('/api/trades');
+        tradesData = await response.json();
+        
+        // Update P&L chart
+        const wins = tradesData.filter(t => t.outcome === 'profit').length;
+        const losses = tradesData.filter(t => t.outcome === 'loss').length;
+        const breakeven = tradesData.filter(t => t.outcome === 'breakeven').length;
+        updatePnlChart(wins, losses, breakeven);
+        
+        // Display trades
+        displayTrades(tradesData);
+    } catch (error) {
+        console.error('Error loading trades:', error);
+    }
+}
+
+// Display Trades
+function displayTrades(trades) {
+    const tbody = document.getElementById('tradesTableBody');
+    
+    if (trades.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="9">No trades yet. Start the bot to begin trading!</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = trades.reverse().map(trade => {
+        const pnlClass = trade.pnl_sol >= 0 ? 'positive' : 'negative';
+        const outcomeClass = trade.outcome === 'profit' ? 'outcome-profit' : 'outcome-loss';
+        const time = new Date(trade.timestamp).toLocaleTimeString();
+        
+        return `
+            <tr>
+                <td>${time}</td>
+                <td><strong>${trade.symbol}</strong></td>
+                <td>${trade.entry_price.toFixed(8)}</td>
+                <td>${trade.exit_price.toFixed(8)}</td>
+                <td class="${pnlClass}">${trade.pnl_sol >= 0 ? '+' : ''}${trade.pnl_sol.toFixed(4)}</td>
+                <td class="${pnlClass}">${trade.pnl_percent >= 0 ? '+' : ''}${trade.pnl_percent.toFixed(2)}%</td>
+                <td>${trade.hold_time.toFixed(0)}s</td>
+                <td>${trade.exit_reason}</td>
+                <td><span class="outcome-badge ${outcomeClass}">${trade.outcome}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Filter Trades
+function filterTrades(filter) {
+    if (filter === 'all') {
+        displayTrades(tradesData);
+    } else {
+        const filtered = tradesData.filter(t => t.outcome === filter);
+        displayTrades(filtered);
+    }
+}
+
+// Update Chart Period
+function updateChartPeriod(period) {
+    // Filter capital history based on period
+    let filtered = [...capitalHistory];
+    
+    if (period === '10m') {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        filtered = capitalHistory.filter(d => d.time >= tenMinutesAgo);
+    } else if (period === '1h') {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        filtered = capitalHistory.filter(d => d.time >= oneHourAgo);
+    }
+    
+    const labels = filtered.map(d => {
+        const time = d.time;
+        return `${time.getHours()}:${String(time.getMinutes()).padStart(2, '0')}:${String(time.getSeconds()).padStart(2, '0')}`;
+    });
+    
+    const data = filtered.map(d => d.capital);
+    
+    performanceChart.data.labels = labels;
+    performanceChart.data.datasets[0].data = data;
+    performanceChart.update();
+}
+
+// Toast Notifications
+function showToast(title, message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    
+    toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+            <h4>${title}</h4>
+            <p>${message}</p>
+        </div>
+    `;
+    
+    document.getElementById('toastContainer').appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+// Utility Functions
+function formatNumber(num, decimals = 2) {
+    return num.toFixed(decimals);
+}
+
+function formatPercent(num) {
+    return `${num >= 0 ? '+' : ''}${num.toFixed(2)}%`;
+}
+
+function formatSOL(num) {
+    return `${num.toFixed(4)} SOL`;
+}
+
+// Auto-refresh trades every 10 seconds
+setInterval(() => {
+    if (statusIndicator.classList.contains('active')) {
+        loadTrades();
+    }
+}, 10000);
+

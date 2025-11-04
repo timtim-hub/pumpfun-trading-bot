@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pump.fun Trading Bot - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">🚀</div>
+                    <div>
+                        <h1>Pump.fun Trading Bot</h1>
+                        <p class="subtitle">Automated Solana Meme Token Trading</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="status-indicator" id="statusIndicator">
+                        <span class="status-dot"></span>
+                        <span id="statusText">Stopped</span>
+                    </div>
+                    <button id="startBtn" class="btn btn-primary">
+                        <span class="btn-icon">▶</span> Start Bot
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger" style="display: none;">
+                        <span class="btn-icon">⏸</span> Stop Bot
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            
+            <!-- Key Metrics Cards -->
+            <div class="metrics-grid">
+                <!-- Capital Card -->
+                <div class="card metric-card capital-card">
+                    <div class="card-header">
+                        <h3>💰 Capital</h3>
+                        <span class="change positive" id="capitalChange">+0.00%</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-value" id="currentCapital">2.0000 SOL</div>
+                        <div class="metric-details">
+                            <span>Initial: <strong id="initialCapital">2.0000</strong> SOL</span>
+                            <span>Peak: <strong id="peakCapital">2.0000</strong> SOL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROI Card -->
+                <div class="card metric-card roi-card">
+                    <div class="card-header">
+                        <h3>📈 ROI</h3>
+                        <span class="badge badge-info">Since Start</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-value" id="roi">0.00%</div>
+                        <div class="metric-details">
+                            <span>Total P&L: <strong id="totalPnl">0.0000</strong> SOL</span>
+                            <span>Net P&L: <strong id="netPnl">0.0000</strong> SOL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trades Card -->
+                <div class="card metric-card trades-card">
+                    <div class="card-header">
+                        <h3>📊 Trades</h3>
+                        <span class="badge badge-success" id="winRate">0%</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-value" id="totalTrades">0</div>
+                        <div class="metric-details">
+                            <span class="positive">Wins: <strong id="winningTrades">0</strong></span>
+                            <span class="negative">Losses: <strong id="losingTrades">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Card -->
+                <div class="card metric-card activity-card">
+                    <div class="card-header">
+                        <h3>🎯 Activity</h3>
+                        <span class="pulse-dot" id="activityPulse"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-value" id="tokensEvaluated">0</div>
+                        <div class="metric-details">
+                            <span>Skipped: <strong id="tokensSkipped">0</strong></span>
+                            <span>Active: <strong id="activePositions">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-row">
+                <!-- Performance Chart -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>📈 Performance Chart</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" data-period="all">All</button>
+                            <button class="chart-btn" data-period="1h">1H</button>
+                            <button class="chart-btn" data-period="10m">10M</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- P&L Distribution -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>💹 P&L Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="pnlChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Positions -->
+            <div class="card positions-card" id="positionsCard" style="display: none;">
+                <div class="card-header">
+                    <h3>🎯 Active Positions</h3>
+                    <span class="badge badge-info" id="positionCount">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="positionsList"></div>
+                </div>
+            </div>
+
+            <!-- Trade History -->
+            <div class="card trades-table-card">
+                <div class="card-header">
+                    <h3>📜 Recent Trades</h3>
+                    <div class="table-controls">
+                        <select id="filterOutcome" class="filter-select">
+                            <option value="all">All Trades</option>
+                            <option value="profit">Profits Only</option>
+                            <option value="loss">Losses Only</option>
+                        </select>
+                        <button class="btn btn-sm" id="refreshTrades">↻ Refresh</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table class="trades-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Token</th>
+                                    <th>Entry</th>
+                                    <th>Exit</th>
+                                    <th>P&L (SOL)</th>
+                                    <th>P&L (%)</th>
+                                    <th>Hold Time</th>
+                                    <th>Exit Reason</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradesTableBody">
+                                <tr class="empty-state">
+                                    <td colspan="9">No trades yet. Start the bot to begin trading!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+

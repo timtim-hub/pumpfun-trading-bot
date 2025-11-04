@@ -54,11 +54,14 @@ class SolanaClient:
         try:
             self.client = AsyncClient(self.rpc_endpoint)
             
-            # Test connection
-            health = await self.client.get_health()
-            self.logger.info(f"✓ Connected to Solana RPC: {self.rpc_endpoint}")
-            
-            return True
+            # Test connection by getting slot
+            response = await self.client.get_slot()
+            if response:
+                self.logger.info(f"✓ Connected to Solana RPC: {self.rpc_endpoint}")
+                return True
+            else:
+                self.logger.error("Failed to connect to Solana RPC")
+                return False
         except Exception as e:
             self.logger.error(f"Failed to connect to Solana RPC: {e}")
             return False

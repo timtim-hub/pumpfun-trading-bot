@@ -28,3 +28,8 @@ python-dateutil>=2.8.2
 colorlog>=6.8.0
 rich>=13.7.0
 
+flask>=3.0.0
+flask-socketio>=5.3.5
+flask-cors>=4.0.0
+python-socketio>=5.10.0
+eventlet>=0.33.3
