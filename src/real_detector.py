@@ -49,37 +49,55 @@ class RealLaunchDetector:
         self.on_token_launch = callback
         self.running = True
         
-        self.logger.info("🔴 Starting REAL token launch detection...")
+        self.logger.info("🔴 Starting REAL token launch detection (QuickNode WebSocket logs)...")
         self.logger.info(f"   Program ID: {self.pumpfun_program}")
-        self.logger.info(f"   Poll interval: {self.poll_interval}s (fast mode!)")
-        self.logger.info(f"   Max signatures per poll: {self.max_signatures_per_poll}")
-        self.logger.info(f"   Pump.fun launches multiple tokens per second!")
-        self.logger.info(f"   You should see tokens within 10-30 seconds...")
         
-        while self.running:
-            try:
-                # Apply rate limit backoff if needed
-                if self.rate_limit_backoff > 0:
-                    self.logger.warning(f"⏳ Rate limited, waiting {self.rate_limit_backoff}s...")
-                    await asyncio.sleep(self.rate_limit_backoff)
-                    self.rate_limit_backoff = 0  # Reset after waiting
-                
-                await self._poll_for_new_launches()
-                self.consecutive_errors = 0  # Reset on success
-                await asyncio.sleep(self.poll_interval)
-            except Exception as e:
-                error_str = str(e)
-                self.consecutive_errors += 1
-                
-                # Check if it's a rate limit error
-                if "429" in error_str or "Too Many Requests" in error_str:
-                    # Exponential backoff for rate limits
-                    self.rate_limit_backoff = min(60, 2 ** self.consecutive_errors)  # Max 60s
-                    self.poll_interval = min(10, self.poll_interval * 1.5)  # Increase poll interval
-                    self.logger.warning(f"⚠️  Rate limited! Backing off for {self.rate_limit_backoff}s, poll interval now {self.poll_interval}s")
-                else:
-                    self.logger.error(f"Polling error: {e}")
-                    await asyncio.sleep(self.poll_interval * 2)
+        # Prefer QuickNode logsSubscribe for near-instant detection
+        try:
+            await self.solana.subscribe_to_logs(self._on_logs_event, program_id=self.pumpfun_program)
+        except Exception as e:
+            self.logger.error(f"WebSocket subscribe failed, falling back to polling: {e}")
+            # Fallback: polling loop
+            while self.running:
+                try:
+                    if self.rate_limit_backoff > 0:
+                        self.logger.warning(f"⏳ Rate limited, waiting {self.rate_limit_backoff}s...")
+                        await asyncio.sleep(self.rate_limit_backoff)
+                        self.rate_limit_backoff = 0
+                    await self._poll_for_new_launches()
+                    self.consecutive_errors = 0
+                    await asyncio.sleep(self.poll_interval)
+                except Exception as e2:
+                    error_str = str(e2)
+                    self.consecutive_errors += 1
+                    if "429" in error_str or "Too Many Requests" in error_str:
+                        self.rate_limit_backoff = min(60, 2 ** self.consecutive_errors)
+                        self.poll_interval = min(10, self.poll_interval * 1.5)
+                        self.logger.warning(f"⚠️  Rate limited! Backing off for {self.rate_limit_backoff}s, poll interval now {self.poll_interval}s")
+                    else:
+                        self.logger.error(f"Polling error: {e2}")
+                        await asyncio.sleep(self.poll_interval * 2)
+
+    async def _on_logs_event(self, params):
+        """Handle logsSubscribe notifications and trigger on new token creates."""
+        try:
+            result = params.get('result', {}) if isinstance(params, dict) else {}
+            value = result.get('value', {})
+            logs = value.get('logs', []) or []
+            signature = value.get('signature')
+            if not signature:
+                return
+            # Check for Create instruction in logs
+            if any(('Instruction: Create' in l) or ('create' in l.lower()) for l in logs):
+                if signature in self.seen_signatures:
+                    return
+                self.seen_signatures.add(signature)
+                token = await self._parse_token_from_transaction_fast(signature, None)
+                if token and self.on_token_launch:
+                    self.logger.info(f"🎉 NEW TOKEN DETECTED (WS): {token.symbol}")
+                    await self.on_token_launch(token)
+        except Exception as e:
+            self.logger.debug(f"Log event parse error: {e}")
     
     async def _poll_for_new_launches(self):
         """Poll for new token launch transactions"""
