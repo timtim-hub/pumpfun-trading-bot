@@ -276,6 +276,9 @@ class TradingEngine:
                 self.logger.info(f"🧪 [DRY-RUN] Simulated buy: {token_amount:.2f} tokens")
             else:
                 # Real buy transaction
+                self.logger.info(f"🔴🔴🔴 LIVE MODE - EXECUTING REAL TRANSACTION 🔴🔴🔴")
+                self.logger.info(f"💰 About to spend {sol_amount:.4f} SOL of your real money!")
+                
                 signature = await self._execute_buy(
                     token,
                     sol_amount,
@@ -284,7 +287,11 @@ class TradingEngine:
                 
                 if not signature:
                     self.logger.error("❌ Buy transaction failed")
+                    self.logger.error("   Check logs for details")
                     return
+                
+                self.logger.success(f"✅✅✅ REAL TRANSACTION EXECUTED!")
+                self.logger.success(f"   Your wallet was charged {sol_amount:.4f} SOL")
             
             # Create position
             position = Position(

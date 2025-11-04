@@ -33,7 +33,8 @@ class RealLaunchDetector:
         self.pumpfun_program = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")
         
         # Polling configuration
-        self.poll_interval = 3  # seconds
+        self.poll_interval = 1  # Check every second - launches happen frequently!
+        self.max_signatures_per_poll = 50  # Get many signatures per poll
         self.last_signature = None
     
     async def start_monitoring(self, callback: Callable):

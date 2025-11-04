@@ -530,6 +530,35 @@ function updateChartPeriod(period) {
 }
 
 // Toast Notifications
+// Live Logs Functions
+function addLiveLog(message, level = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    
+    liveLogs.push(logEntry);
+    
+    // Keep only last MAX_LOGS entries
+    if (liveLogs.length > MAX_LOGS) {
+        liveLogs.shift();
+    }
+    
+    // Update display
+    const logsDiv = document.getElementById('liveLogs');
+    if (logsDiv) {
+        logsDiv.textContent = liveLogs.join('\n');
+        // Auto-scroll to bottom
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+}
+
+function clearLogs() {
+    liveLogs = [];
+    const logsDiv = document.getElementById('liveLogs');
+    if (logsDiv) {
+        logsDiv.textContent = '';
+    }
+}
+
 function showToast(title, message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
