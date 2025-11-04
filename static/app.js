@@ -28,10 +28,12 @@ socket.on('connect', () => {
     console.log('🔌 Connected to WebSocket server');
     console.log('Socket ID:', socket.id);
     showToast('Connected', 'WebSocket connection established', 'success');
+    addLiveLog('✅ Connected to server');
 });
 
 socket.on('disconnect', () => {
     console.log('🔌 Disconnected from WebSocket server');
+    addLiveLog('❌ Disconnected from server');
     showToast('Disconnected', 'Lost connection to server', 'error');
     updateStatus(false);
 });
