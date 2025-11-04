@@ -143,7 +143,7 @@ class RiskManager:
         """
         config = self.config['strategy']
         
-        # 🔥 ULTRA SELECTIVE ENTRY - Only trade the absolute BEST setups (top 10%)
+        # 🎯 BALANCED SELECTIVE ENTRY - Trade 30-40% of launches (catch winners, avoid obvious losers)
         
         # Get all metrics
         progress = activity.get('bonding_curve_progress', 0)
@@ -153,76 +153,88 @@ class RiskManager:
         sell_count = activity.get('sell_count', 0)
         unique_buyers = activity.get('unique_buyers', 0)
         
-        # EXTREMELY STRICT FILTERS - Miss 90% of tokens to catch only winners
+        # BASIC FILTERS - Remove obviously bad tokens
         if progress < config['min_bonding_curve_progress']:
             return False, f"Bonding curve progress too low ({progress:.1f}%)"
         
         if progress > config['max_bonding_curve_progress']:
             return False, f"Entry too late ({progress:.1f}% filled)"
         
-        # MUCH HIGHER volume requirement (2.5x minimum)
-        if volume < config['min_early_volume_sol'] * 2.5:
-            return False, f"Volume too low ({volume:.2f} SOL) - need stronger signal"
+        # Moderate volume requirement (1.2x minimum)
+        if volume < config['min_early_volume_sol'] * 1.2:
+            return False, f"Volume too low ({volume:.2f} SOL)"
         
-        # Require STRONG early momentum (at least +10%)
-        if price_change < 10:
-            return False, f"Weak momentum ({price_change:.1f}%) - need +10% minimum"
+        # Require some positive momentum
+        if price_change < 0:
+            return False, f"Negative momentum ({price_change:.1f}%)"
         
         if token.is_suspicious:
             return False, "Token flagged as suspicious"
         
-        # Calculate ELITE MOMENTUM SCORE (0-100 points) - VERY demanding
+        # Calculate MOMENTUM SCORE (0-100 points) - Balanced thresholds
         momentum_score = 0
         
-        # Volume score (0-35 points) - MUCH higher thresholds
-        if volume >= 8.0:
-            momentum_score += 35
-        elif volume >= 5.0:
-            momentum_score += 28
-        elif volume >= 3.0:
-            momentum_score += 18
-        elif volume >= 2.0:
-            momentum_score += 8
-        
-        # Price change score (0-35 points) - Reward EXPLOSIVE early pumps
-        if price_change >= 100:
-            momentum_score += 35
-        elif price_change >= 75:
+        # Volume score (0-30 points)
+        if volume >= 5.0:
             momentum_score += 30
-        elif price_change >= 50:
-            momentum_score += 22
-        elif price_change >= 25:
-            momentum_score += 12
-        
-        # Buy/sell ratio score (0-20 points) - REQUIRE heavy buy pressure
-        total_trades = buy_count + max(sell_count, 1)
-        buy_ratio = buy_count / total_trades
-        if buy_ratio >= 0.95:
+        elif volume >= 3.0:
+            momentum_score += 25
+        elif volume >= 1.5:
             momentum_score += 20
-        elif buy_ratio >= 0.88:
+        elif volume >= 0.8:
             momentum_score += 12
-        elif buy_ratio >= 0.75:
+        elif volume >= 0.5:
             momentum_score += 5
         
-        # Unique buyers score (0-10 points) - FOMO indicator
-        if unique_buyers >= 40:
+        # Price change score (0-35 points)
+        if price_change >= 100:
+            momentum_score += 35
+        elif price_change >= 60:
+            momentum_score += 30
+        elif price_change >= 35:
+            momentum_score += 25
+        elif price_change >= 20:
+            momentum_score += 18
+        elif price_change >= 10:
             momentum_score += 10
-        elif unique_buyers >= 25:
-            momentum_score += 6
+        elif price_change >= 5:
+            momentum_score += 5
+        
+        # Buy/sell ratio score (0-20 points)
+        total_trades = buy_count + max(sell_count, 1)
+        buy_ratio = buy_count / total_trades
+        if buy_ratio >= 0.90:
+            momentum_score += 20
+        elif buy_ratio >= 0.80:
+            momentum_score += 15
+        elif buy_ratio >= 0.70:
+            momentum_score += 10
+        elif buy_ratio >= 0.60:
+            momentum_score += 5
+        
+        # Unique buyers score (0-15 points)
+        if unique_buyers >= 35:
+            momentum_score += 15
+        elif unique_buyers >= 22:
+            momentum_score += 12
         elif unique_buyers >= 15:
-            momentum_score += 3
+            momentum_score += 8
+        elif unique_buyers >= 10:
+            momentum_score += 5
         
-        # 🔥 FILTER: Only enter if momentum score >= 60 (ELITE signal only)
-        # This will skip 90%+ of tokens but catch the real pumps
-        if momentum_score < 60:
-            return False, f"❌ REJECTED (score: {momentum_score}/100) - Only trade elite setups (60+)"
+        # 🎯 FILTER: Enter if momentum score >= 35 (trade 30-40% of tokens)
+        # This balances selectivity with actually making trades
+        if momentum_score < 35:
+            return False, f"❌ Weak signal (score: {momentum_score}/100) - need 35+ to enter"
         
-        if momentum_score >= 80:
-            return True, f"🔥 ELITE PUMP (score: {momentum_score}/100) - MAXIMUM CONFIDENCE"
-        elif momentum_score >= 70:
-            return True, f"🚀 EXCELLENT SETUP (score: {momentum_score}/100) - HIGH CONVICTION"
+        if momentum_score >= 70:
+            return True, f"🔥 EXCELLENT (score: {momentum_score}/100) - HIGH CONFIDENCE!"
+        elif momentum_score >= 55:
+            return True, f"🚀 STRONG (score: {momentum_score}/100) - GOOD SETUP!"
+        elif momentum_score >= 45:
+            return True, f"✅ GOOD (score: {momentum_score}/100) - SOLID ENTRY"
         else:
-            return True, f"✅ STRONG SIGNAL (score: {momentum_score}/100) - GOOD ENTRY"
+            return True, f"✓ ACCEPTABLE (score: {momentum_score}/100) - WORTH TRADING"
     
     def check_exit_conditions(self, position: Position) -> tuple[bool, str]:
         """
