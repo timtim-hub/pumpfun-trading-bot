@@ -217,7 +217,7 @@ function updatePositions(positions) {
     
     positionsList.innerHTML = positions.map(pos => {
         // Pump.fun link for active positions
-        const pumpfunLink = pos.mint ? `https://pump.fun/${pos.mint}` : '#';
+        const pumpfunLink = pos.mint ? `https://pump.fun/coin/${pos.mint}` : '#';
         const tokenDisplay = pos.mint
             ? `<h4><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${pos.symbol}</a> 🔗</h4>`
             : `<h4>${pos.symbol}</h4>`;
@@ -498,7 +498,7 @@ function displayTrades(trades) {
         const time = new Date(trade.timestamp).toLocaleTimeString();
         
         // Pump.fun link
-        const pumpfunLink = trade.mint ? `https://pump.fun/${trade.mint}` : '#';
+        const pumpfunLink = trade.mint ? `https://pump.fun/coin/${trade.mint}` : '#';
         const tokenDisplay = trade.mint 
             ? `<strong><a href="${pumpfunLink}" target="_blank" rel="noopener noreferrer" style="color: #6366f1; text-decoration: none;">${trade.symbol}</a> 🔗</strong>`
             : `<strong>${trade.symbol}</strong>`;
