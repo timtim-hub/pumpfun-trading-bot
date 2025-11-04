@@ -440,6 +440,8 @@ def check_wallet():
         try:
             import json as json_lib
             from solders.keypair import Keypair as SoldersKeypair
+            from solana.rpc.api import Client
+            from solders.pubkey import Pubkey
             
             with open(wallet_file, 'r') as f:
                 secret_key = json_lib.load(f)
@@ -447,17 +449,42 @@ def check_wallet():
             # Load keypair to get address
             keypair = SoldersKeypair.from_bytes(bytes(secret_key))
             address = str(keypair.pubkey())
+            pubkey = Pubkey.from_string(address)
             
-            # For dry-run mode, return mock balance
-            # In production, this would query the Solana blockchain
-            mock_balance = 2.5
-            
-            return jsonify({
-                'success': True,
-                'balance': mock_balance,
-                'address': address,
-                'exists': True
-            })
+            # Query ACTUAL balance from Solana blockchain
+            try:
+                # Load RPC endpoint from config
+                import yaml
+                with open('config.yaml', 'r') as f:
+                    config = yaml.safe_load(f)
+                
+                rpc_url = config['solana']['rpc_endpoint']
+                client = Client(rpc_url)
+                
+                # Get balance (in lamports)
+                response = client.get_balance(pubkey)
+                lamports = response.value if hasattr(response, 'value') else 0
+                
+                # Convert lamports to SOL (1 SOL = 1_000_000_000 lamports)
+                balance_sol = lamports / 1_000_000_000
+                
+                return jsonify({
+                    'success': True,
+                    'balance': balance_sol,
+                    'address': address,
+                    'exists': True,
+                    'source': 'blockchain'  # Indicate this is real data
+                })
+            except Exception as rpc_error:
+                # If RPC fails, still return the address but with 0 balance
+                print(f"RPC Error: {rpc_error}")
+                return jsonify({
+                    'success': True,
+                    'balance': 0.0,
+                    'address': address,
+                    'exists': True,
+                    'error': f'Could not fetch balance from blockchain: {str(rpc_error)}'
+                })
         except Exception as e:
             return jsonify({'error': f'Invalid wallet file: {str(e)}'}), 400
     
