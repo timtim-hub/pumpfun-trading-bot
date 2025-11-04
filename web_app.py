@@ -26,6 +26,7 @@ from src.logger import get_logger
 from src.solana_client import SolanaClient, PumpFunClient
 from src.detector import LaunchDetector, MockLaunchDetector
 from src.polling_detector import PollingLaunchDetector
+from src.real_detector import RealLaunchDetector
 from src.risk_manager import RiskManager
 from src.trading_engine import TradingEngine
 from src.models import BotMetrics
@@ -99,13 +100,13 @@ class WebTradingBot:
             )
             self.logger.info("🧪 Using Mock Launch Detector (Dry Run)")
         else:
-            # Use PollingLaunchDetector for live mode (more reliable than WebSocket)
-            self.detector = PollingLaunchDetector(
+            # Use RealLaunchDetector for live mode - queries actual Solana blockchain
+            self.detector = RealLaunchDetector(
                 self.solana_client,
                 self.pumpfun_client
             )
-            self.logger.info("🔴 Using Polling Launch Detector (Live Trading)")
-            self.logger.info("   (Polls every 2s for new Pump.fun tokens)")
+            self.logger.info("🔴 Using REAL Launch Detector (Live Trading)")
+            self.logger.info("   (Queries Solana for actual Pump.fun token launches)")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
