@@ -24,8 +24,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.config import get_config
 from src.logger import get_logger
 from src.solana_client import SolanaClient, PumpFunClient
-from src.detector import LaunchDetector, MockLaunchDetector
-from src.polling_detector import PollingLaunchDetector
 from src.real_detector import RealLaunchDetector
 from src.risk_manager import RiskManager
 from src.trading_engine import TradingEngine
@@ -58,6 +56,14 @@ class WebTradingBot:
             trade_log_file=self.config.get('logging.trade_log_file'),
             level='INFO'
         )
+        # Mirror logs to Socket.IO live logs panel
+        try:
+            self.logger.set_socket_emitter(lambda level, message: socketio.emit('log_message', {
+                'level': level,
+                'message': message
+            }))
+        except Exception:
+            pass
         
         self.solana_client = None
         self.pumpfun_client = None
@@ -393,15 +399,12 @@ def get_metrics():
 @app.route('/api/config')
 def get_config_api():
     """Get current configuration"""
-    if bot_state['config']:
-        return jsonify(bot_state['config'].config)
-    
-    # Return default config if bot not initialized
+    # Always read from disk to reflect latest saved mode/settings
     try:
         config = get_config()
         return jsonify(config.config)
-    except:
-        return jsonify({})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 
 @app.route('/api/config/update', methods=['POST'])
@@ -471,6 +474,12 @@ def update_config():
             yaml.dump(config, f, default_flow_style=False)
         
         print(f"✅ Config saved successfully. Mode: {config.get('mode', 'unknown')}")
+        
+        # Refresh in-memory config snapshot
+        try:
+            bot_state['config'] = get_config()
+        except Exception:
+            pass
         
         return jsonify({
             'success': True, 

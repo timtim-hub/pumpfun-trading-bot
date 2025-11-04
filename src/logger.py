@@ -79,6 +79,8 @@ class TradingLogger:
         
         # Trade log CSV
         self.trade_log_file = trade_log_file
+        # Optional Socket.IO emitter callback: callable(level:str, message:str)
+        self._socket_emitter = None
         if trade_log_file:
             trade_path = Path(trade_log_file)
             trade_path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,47 +97,68 @@ class TradingLogger:
                         'hold_time_seconds', 'fees_paid', 'exit_reason',
                         'entry_signature', 'exit_signature'
                     ])
+
+    def set_socket_emitter(self, emitter):
+        """Attach a Socket.IO emitter callback to mirror logs to UI."""
+        self._socket_emitter = emitter
+
+    def _emit_socket(self, level: str, message: str):
+        if self._socket_emitter:
+            try:
+                self._socket_emitter(level, message)
+            except Exception:
+                # Never let UI emission break logging
+                pass
     
     def info(self, message: str):
         """Log info message"""
         self.logger.info(message)
+        self._emit_socket('info', message)
     
     def debug(self, message: str):
         """Log debug message"""
         self.logger.debug(message)
+        self._emit_socket('debug', message)
     
     def warning(self, message: str):
         """Log warning message"""
         self.logger.warning(message)
+        self._emit_socket('warning', message)
     
     def error(self, message: str):
         """Log error message"""
         self.logger.error(message)
+        self._emit_socket('error', message)
     
     def success(self, message: str):
         """Log success message in green"""
         console.print(f"✓ {message}", style="success")
         self.logger.info(message)
+        self._emit_socket('success', message)
     
     def trade_info(self, message: str):
         """Log trade-related message"""
         console.print(f"💰 {message}", style="trade")
         self.logger.info(message)
+        self._emit_socket('trade', message)
     
     def profit(self, message: str):
         """Log profit message"""
         console.print(f"📈 {message}", style="profit")
         self.logger.info(message)
+        self._emit_socket('profit', message)
     
     def loss(self, message: str):
         """Log loss message"""
         console.print(f"📉 {message}", style="loss")
         self.logger.info(message)
+        self._emit_socket('loss', message)
     
     def new_token(self, token_symbol: str, mint: str):
         """Log new token detection"""
         console.print(f"\n🚀 [bold cyan]New Token Detected:[/bold cyan] {token_symbol} ({mint[:8]}...)")
         self.logger.info(f"New token: {token_symbol} ({mint})")
+        self._emit_socket('info', f"New token detected: {token_symbol} ({mint})")
     
     def log_trade(self, trade: Trade):
         """
@@ -169,6 +192,7 @@ class TradingLogger:
                     trade.entry_signature or '',
                     trade.exit_signature or ''
                 ])
+            self._emit_socket('trade', f"Trade closed: {trade.token.symbol} PnL {trade.pnl_sol:.4f} SOL ({trade.pnl_percent:.2f}%)")
         except Exception as e:
             self.error(f"Failed to log trade to CSV: {e}")
     

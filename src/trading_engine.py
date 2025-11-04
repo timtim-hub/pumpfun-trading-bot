@@ -9,7 +9,7 @@ from datetime import datetime
 
 from .models import TokenInfo, Position, Trade, TradeStatus, BotMetrics
 from .solana_client import SolanaClient, PumpFunClient
-from .detector import LaunchDetector
+from typing import Any
 from .risk_manager import RiskManager
 from .logger import get_logger
 from .config import Config
@@ -22,7 +22,7 @@ class TradingEngine:
     def __init__(self, config: Config, 
                  solana_client: SolanaClient,
                  pumpfun_client: PumpFunClient,
-                 detector: LaunchDetector,
+                 detector: Any,
                  risk_manager: RiskManager,
                  dry_run: bool = True):
         """
@@ -702,79 +702,18 @@ class TradingEngine:
             position: Position to update
         """
         try:
-            # Get current price
-            if self.dry_run:
-                # Simulate price movement based on token quality
-                import random
-                
-                # Get token quality (stored when position created)
-                quality = getattr(position.token, '_mock_quality', 'dud')
-                
-                # Calculate how far we've moved from entry
-                price_change_from_entry = ((position.current_price - position.entry_price) / position.entry_price) * 100
-                
-                # IMPROVED QUALITY-BASED PRICE SIMULATION - More profitable but realistic
-                # Simulate realistic pump-and-dump patterns with better upside
-                if quality == 'moon':
-                    # MOON SHOT TOKEN - Strong upward bias, can reach 5-8x
-                    if price_change_from_entry < 0:
-                        price_change = random.uniform(0.01, 0.05)  # Bounce back strong
-                    elif price_change_from_entry < 80:
-                        price_change = random.uniform(0.02, 0.08)  # Strong pump phase
-                    elif price_change_from_entry < 200:
-                        price_change = random.uniform(0.01, 0.06)  # Continued pump
-                    elif price_change_from_entry < 350:
-                        price_change = random.uniform(-0.02, 0.04)  # Peak phase
-                    elif price_change_from_entry < 500:
-                        price_change = random.uniform(-0.05, 0.02)  # Topping
-                    else:
-                        price_change = random.uniform(-0.12, -0.02)  # Correction
-                    
-                    max_mult = 8.0  # Can 8x - realistic moon shot
-                
-                elif quality == 'moderate':
-                    # MODERATE PUMPER - Good gains, reaches 2-3x with some volatility
-                    if price_change_from_entry < 0:
-                        price_change = random.uniform(0.005, 0.04)  # Small recovery
-                    elif price_change_from_entry < 60:
-                        price_change = random.uniform(0.01, 0.06)  # Moderate pump
-                    elif price_change_from_entry < 120:
-                        price_change = random.uniform(-0.02, 0.04)  # Consolidation
-                    elif price_change_from_entry < 180:
-                        price_change = random.uniform(-0.05, 0.02)  # Near peak
-                    else:
-                        price_change = random.uniform(-0.10, -0.01)  # Pullback
-                    
-                    max_mult = 3.0  # Can 3x - decent pump
-                
-                else:
-                    # DUD TOKEN - Mixed but slightly positive bias initially, then dumps
-                    if price_change_from_entry < -30:
-                        price_change = random.uniform(-0.05, 0.01)  # Slow bleed
-                    elif price_change_from_entry < 0:
-                        price_change = random.uniform(-0.03, 0.03)  # Choppy
-                    elif price_change_from_entry < 25:
-                        price_change = random.uniform(-0.04, 0.03)  # Small moves
-                    elif price_change_from_entry < 45:
-                        price_change = random.uniform(-0.07, 0.01)  # Topping
-                    else:
-                        price_change = random.uniform(-0.10, -0.02)  # Dump phase
-                    
-                    max_mult = 1.6  # Max 60% gain before reversal
-                
-                new_price = position.current_price * (1 + price_change)
-                
-                # Apply quality-based caps (realistic limits)
-                new_price = max(position.entry_price * 0.05, new_price)  # Min 5% of entry (not total dump)
-                new_price = min(position.entry_price * max_mult, new_price)  # Quality-based max
-                
-            else:
-                # Get real price from bonding curve
-                curve_data = await self.pumpfun.get_bonding_curve_data(
-                    position.token.bonding_curve
-                )
-                # Parse price from curve data (simplified)
-                new_price = position.current_price * 1.01  # Placeholder
+            # Get current price (real data in both modes)
+            curve_data = None
+            try:
+                if position.token.bonding_curve:
+                    curve_data = await self.pumpfun.get_bonding_curve_data(
+                        position.token.bonding_curve
+                    )
+            except Exception as _:
+                curve_data = None
+
+            # TODO: decode curve_data to extract actual price; fallback to last price if unknown
+            new_price = position.current_price
             
             # Update position
             position.update_price(new_price)

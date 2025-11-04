@@ -253,56 +253,19 @@ class RiskManager:
         if hold_time < self.min_hold_time:
             return False, "Min hold time not reached"
         
-        # 💰 INSTANT PROFIT-TAKING - Exit at FIRST profitable opportunity
-        quality = getattr(position.token, '_mock_quality', 'dud')
+        # 💰 PROFIT-TAKING - Generic thresholds (quality-agnostic)
+        if position.unrealized_pnl_percent >= 200:
+            return True, f"💥 MASSIVE GAINS (+{position.unrealized_pnl_percent:.1f}%) - BANK IT NOW!"
+        if position.unrealized_pnl_percent >= 120 and hold_time >= 30:
+            return True, f"🚀 Strong pump (+{position.unrealized_pnl_percent:.1f}%) - EXIT BEFORE REVERSAL!"
+        if position.unrealized_pnl_percent >= 80 and hold_time >= 40:
+            return True, f"📈 Good profit (+{position.unrealized_pnl_percent:.1f}%) - taking it!"
+        if position.unrealized_pnl_percent >= 50 and hold_time >= 50:
+            return True, f"✅ Decent gain (+{position.unrealized_pnl_percent:.1f}%) - locking in"
         
-        # For Pump.fun, speed is everything - take profit FAST before reversal
-        if quality == 'moon':
-            # Moon shots - Still exit faster than before
-            if position.unrealized_pnl_percent >= 200:
-                return True, f"🌙 MASSIVE GAINS (+{position.unrealized_pnl_percent:.1f}%) - BANK IT NOW!"
-            elif position.unrealized_pnl_percent >= 120 and hold_time >= 30:
-                return True, f"🌙 Strong pump (+{position.unrealized_pnl_percent:.1f}%) - EXIT BEFORE REVERSAL!"
-            elif position.unrealized_pnl_percent >= 80 and hold_time >= 40:
-                return True, f"🌙 Good profit (+{position.unrealized_pnl_percent:.1f}%) - taking it!"
-            elif position.unrealized_pnl_percent >= 50 and hold_time >= 50:
-                return True, f"🌙 Decent gain (+{position.unrealized_pnl_percent:.1f}%) - locking in"
-        
-        elif quality == 'moderate':
-            # Moderate - Exit MUCH faster
-            if position.unrealized_pnl_percent >= 80:
-                return True, f"💎 GREAT PROFIT (+{position.unrealized_pnl_percent:.1f}%) - EXIT NOW!"
-            elif position.unrealized_pnl_percent >= 50 and hold_time >= 25:
-                return True, f"💎 Good gains (+{position.unrealized_pnl_percent:.1f}%) - secure profit!"
-            elif position.unrealized_pnl_percent >= 30 and hold_time >= 35:
-                return True, f"💎 Solid profit (+{position.unrealized_pnl_percent:.1f}%) - take it!"
-            elif position.unrealized_pnl_percent >= 20 and hold_time >= 45:
-                return True, f"💎 Small win (+{position.unrealized_pnl_percent:.1f}%) - better than loss!"
-        
-        else:
-            # Duds - Exit IMMEDIATELY at ANY profit (Pump.fun duds dump FAST)
-            if position.unrealized_pnl_percent >= 25:
-                return True, f"⚡ PROFIT DETECTED (+{position.unrealized_pnl_percent:.1f}%) - EXIT IMMEDIATELY!"
-            elif position.unrealized_pnl_percent >= 15 and hold_time >= 15:
-                return True, f"⚡ Quick win (+{position.unrealized_pnl_percent:.1f}%) - GET OUT NOW!"
-            elif position.unrealized_pnl_percent >= 10 and hold_time >= 25:
-                return True, f"⚡ Small profit (+{position.unrealized_pnl_percent:.1f}%) - TAKE IT!"
-            elif position.unrealized_pnl_percent >= 5 and hold_time >= 35:
-                return True, f"⚡ Tiny gain (+{position.unrealized_pnl_percent:.1f}%) - exit before dump!"
-        
-        # 🛑 ULTRA TIGHT STOP LOSSES - Cut losses INSTANTLY (Pump.fun dumps are BRUTAL)
-        if quality == 'dud':
-            # INSTANT stop on duds - NO MERCY
-            if position.unrealized_pnl_percent <= -3:
-                return True, f"🛑 INSTANT STOP on dud ({position.unrealized_pnl_percent:.1f}%) - CUT NOW!"
-        elif quality == 'moderate':
-            # Very tight stop on moderate
-            if position.unrealized_pnl_percent <= -4:
-                return True, f"🛑 QUICK STOP ({position.unrealized_pnl_percent:.1f}%) - preserve capital!"
-        else:
-            # Even moon shots - tight stop (Pump.fun is unforgiving)
-            if position.unrealized_pnl_percent <= -6:
-                return True, f"🛑 STOP LOSS ({position.unrealized_pnl_percent:.1f}%) - exit now!"
+        # 🛑 STOP LOSSES - Quality-agnostic tight stops
+        if position.unrealized_pnl_percent <= -self.stop_loss_percent:
+            return True, f"🛑 STOP LOSS ({position.unrealized_pnl_percent:.1f}%) - exit now!"
         
         # Check trailing stop (lock in profits)
         if position.trailing_stop_price and position.current_price <= position.trailing_stop_price:

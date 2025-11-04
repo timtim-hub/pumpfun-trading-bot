@@ -172,63 +172,87 @@ class RealLaunchDetector:
     
     async def _parse_token_from_transaction_fast(self, signature: str, sig_info) -> Optional[TokenInfo]:
         """
-        Fast token parsing - generates token immediately without waiting for full tx
-        
-        Args:
-            signature: Transaction signature
-            sig_info: Signature info from get_signatures_for_address
-        
-        Returns:
-            TokenInfo or None
+        Parse real token mint from transaction using jsonParsed fields.
+        Falls back gracefully if parsing fails.
         """
         try:
-            # For speed, just generate a token for each transaction
-            # In production, you'd parse the actual transaction data
-            # But this is fast enough to catch the high volume
-            
-            import random
-            
-            # Generate token data
-            adjectives = ["Moon", "Rocket", "Diamond", "Golden", "Turbo", "Mega", "Super", "Ultra", "Doge", "Pepe"]
-            nouns = ["Cat", "Dog", "Coin", "Token", "Inu", "Shib", "Chad", "Wojak", "Bonk", "Floki"]
-            
-            adj = random.choice(adjectives)
-            noun = random.choice(nouns)
-            
-            name = f"{adj} {noun}"
-            symbol = f"{adj[:2].upper()}{noun[:3].upper()}"
-            
-            # Use signature-derived addresses for consistency
-            mint = str(Pubkey.new_unique())
-            bonding_curve = str(Pubkey.new_unique())
-            creator = str(Pubkey.new_unique())
-            
-            # Assign quality
-            quality_roll = random.random()
-            if quality_roll < 0.50:
-                quality = "dud"
-            elif quality_roll < 0.80:
-                quality = "moderate"
-            else:
-                quality = "moonshot"
-            
+            tx = await self.solana.client.get_transaction(
+                signature,
+                encoding="jsonParsed",
+                max_supported_transaction_version=0
+            )
+            if not tx or not tx.value:
+                return None
+
+            value = tx.value
+            # Try to extract mint from postTokenBalances (most reliable)
+            mint = None
+            try:
+                post_tb = getattr(value.meta, 'post_token_balances', None)
+                if post_tb:
+                    # Choose the first non-WSOL mint if present
+                    for tb in post_tb:
+                        m = str(tb.mint)
+                        if m and m != "So11111111111111111111111111111111111111112":
+                            mint = m
+                            break
+            except Exception:
+                mint = None
+
+            # If not found, try preTokenBalances (rare)
+            if not mint:
+                try:
+                    pre_tb = getattr(value.meta, 'pre_token_balances', None)
+                    if pre_tb:
+                        for tb in pre_tb:
+                            m = str(tb.mint)
+                            if m and m != "So11111111111111111111111111111111111111112":
+                                mint = m
+                                break
+                except Exception:
+                    pass
+
+            # As a final heuristic, scan inner instructions for spl-token mint init
+            bonding_curve = None
+            creator = None
+            try:
+                # Accounts present in the message
+                if hasattr(value.transaction, 'message') and hasattr(value.transaction.message, 'account_keys'):
+                    keys = value.transaction.message.account_keys
+                    # Stringify Pubkeys
+                    key_strs = [str(k.pubkey) if hasattr(k, 'pubkey') else str(k) for k in keys]
+                    # Pump.fun tx often includes creator and bonding curve accounts around the program id
+                    # Heuristic: pick any key that isn't system or token program as bonding curve placeholder
+                    for k in key_strs:
+                        if k not in ["11111111111111111111111111111111",  # System
+                                     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token
+                                     str(self.pumpfun_program)]:
+                            bonding_curve = bonding_curve or k
+                    if key_strs:
+                        creator = key_strs[0]
+            except Exception:
+                pass
+
+            if not mint:
+                # If we cannot confidently parse, skip
+                return None
+
+            # Name/symbol may not be directly available; use placeholders
+            name = "Pump Token"
+            symbol = mint[:4]
+
             token = TokenInfo(
                 mint=mint,
                 name=name,
                 symbol=symbol,
                 uri="",
-                bonding_curve=bonding_curve,
-                creator=creator,
+                bonding_curve=bonding_curve or "",
+                creator=creator or "",
                 timestamp=datetime.now()
             )
-            
-            # Store quality
-            token._mock_quality = quality
-            
             return token
-        
         except Exception as e:
-            self.logger.debug(f"Error parsing token fast: {e}")
+            self.logger.debug(f"Error parsing transaction for mint: {e}")
             return None
     
     async def _parse_token_from_transaction(self, signature: str) -> Optional[TokenInfo]:

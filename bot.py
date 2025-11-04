@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.config import get_config
 from src.logger import get_logger
 from src.solana_client import SolanaClient, PumpFunClient
-from src.detector import LaunchDetector, MockLaunchDetector
+from src.real_detector import RealLaunchDetector
 from src.risk_manager import RiskManager
 from src.trading_engine import TradingEngine
 
@@ -66,19 +66,12 @@ class TradingBot:
         # Initialize Pump.fun client
         self.pumpfun_client = PumpFunClient(self.solana_client)
         
-        # Initialize detector (mock in dry-run, real in live)
-        if self.config.is_dry_run():
-            self.detector = MockLaunchDetector(
-                self.solana_client,
-                self.pumpfun_client
-            )
-            self.logger.info("✓ Using MOCK detector for dry-run mode")
-        else:
-            self.detector = LaunchDetector(
-                self.solana_client,
-                self.pumpfun_client
-            )
-            self.logger.info("✓ Using REAL detector for live mode")
+        # Initialize detector (REAL in both modes)
+        self.detector = RealLaunchDetector(
+            self.solana_client,
+            self.pumpfun_client
+        )
+        self.logger.info("✓ Using REAL detector for both dry-run and live modes")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
