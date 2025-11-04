@@ -17,6 +17,9 @@ function setupEventListeners() {
 
     // Wallet check
     document.getElementById('checkWalletBtn').addEventListener('click', checkWallet);
+    
+    // Wallet create
+    document.getElementById('createWalletBtn').addEventListener('click', createWallet);
 
     // Save settings
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
@@ -101,6 +104,12 @@ function updateModeBadge(mode) {
 // Check Wallet Balance
 async function checkWallet() {
     const walletPath = document.getElementById('walletPath').value;
+    
+    if (!walletPath) {
+        showToast('Error', 'Please enter a wallet path', 'error');
+        return;
+    }
+    
     const btn = document.getElementById('checkWalletBtn');
     
     btn.disabled = true;
@@ -121,6 +130,7 @@ async function checkWallet() {
             showToast('Error', data.error, 'error');
             document.getElementById('walletStatus').textContent = 'Not Found';
             document.getElementById('walletStatus').className = 'badge badge-danger';
+            document.getElementById('walletInfo').style.display = 'none';
         } else {
             document.getElementById('walletInfo').style.display = 'block';
             document.getElementById('walletAddress').textContent = data.address;
@@ -136,6 +146,51 @@ async function checkWallet() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'Check Balance';
+    }
+}
+
+// Create New Wallet
+async function createWallet() {
+    const walletPath = document.getElementById('walletPath').value || 'wallet.json';
+    
+    if (!confirm(`Create a new wallet at ${walletPath}?\n\n⚠️ This will overwrite the file if it exists!`)) {
+        return;
+    }
+    
+    const btn = document.getElementById('createWalletBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+        const response = await fetch('/api/wallet/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ wallet_path: walletPath })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            showToast('Error', data.error, 'error');
+        } else {
+            document.getElementById('walletPath').value = data.path;
+            document.getElementById('walletInfo').style.display = 'block';
+            document.getElementById('walletAddress').textContent = data.address;
+            document.getElementById('walletBalance').textContent = '0.0000 SOL';
+            document.getElementById('walletStatus').textContent = 'Created (No Balance)';
+            document.getElementById('walletStatus').className = 'badge badge-warning';
+            
+            showToast('Success', `Wallet created at ${data.path}`, 'success');
+            showToast('Important', `Fund this wallet with SOL before trading!\nAddress: ${data.address}`, 'warning');
+        }
+    } catch (error) {
+        console.error('Error creating wallet:', error);
+        showToast('Error', 'Failed to create wallet', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create New';
     }
 }
 

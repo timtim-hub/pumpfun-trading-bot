@@ -335,16 +335,59 @@ def check_wallet():
         data = request.json
         keypair_path = data.get('keypair_path')
         
-        if not keypair_path or not Path(keypair_path).exists():
-            return jsonify({'error': 'Wallet file not found'}), 404
+        if not keypair_path:
+            return jsonify({'error': 'Wallet path required'}), 400
         
-        # This would check actual balance in production
-        # For now, return mock data
+        # Check if file exists
+        wallet_file = Path(keypair_path)
+        if not wallet_file.exists():
+            return jsonify({'error': f'Wallet file not found: {keypair_path}'}), 404
+        
+        # Try to load the actual wallet and check balance
+        try:
+            import json as json_lib
+            with open(wallet_file, 'r') as f:
+                secret_key = json_lib.load(f)
+            
+            # For now, return mock data (in production this would check actual balance)
+            return jsonify({
+                'success': True,
+                'balance': 2.5,
+                'address': f'{keypair_path[:20]}...',
+                'exists': True
+            })
+        except Exception as e:
+            return jsonify({'error': f'Invalid wallet file: {str(e)}'}), 400
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/wallet/create', methods=['POST'])
+def create_wallet():
+    """Create a new wallet"""
+    try:
+        data = request.json
+        wallet_path = data.get('wallet_path', 'wallet.json')
+        
+        # Generate new keypair
+        from solders.keypair import Keypair as SoldersKeypair
+        import json as json_lib
+        
+        keypair = SoldersKeypair()
+        
+        # Save to file
+        wallet_file = Path(wallet_path)
+        wallet_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(wallet_file, 'w') as f:
+            json_lib.dump(list(bytes(keypair)), f)
+        
         return jsonify({
             'success': True,
-            'balance': 2.5,
-            'address': 'MockAddress123...',
-            'exists': True
+            'path': wallet_path,
+            'address': str(keypair.pubkey()),
+            'message': 'Wallet created successfully'
         })
     
     except Exception as e:

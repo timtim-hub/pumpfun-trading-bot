@@ -181,6 +181,17 @@ body {
     transform: translateY(-2px);
 }
 
+.btn-success {
+    background: var(--accent-success);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
 .btn-sm {
     padding: 6px 12px;
     font-size: 13px;
