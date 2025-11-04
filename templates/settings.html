@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Pump.fun Trading Bot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">⚙️</div>
+                    <div>
+                        <h1>Bot Settings</h1>
+                        <p class="subtitle">Configure Trading Parameters</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <a href="/" class="btn btn-secondary">
+                        <span class="btn-icon">←</span> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+
+            <!-- Trading Mode Section -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h3>🎮 Trading Mode</h3>
+                    <span class="badge" id="currentModeBadge">dry_run</span>
+                </div>
+                <div class="card-body">
+                    <div class="mode-selector">
+                        <div class="mode-option" id="dryRunOption">
+                            <div class="mode-icon">🧪</div>
+                            <div class="mode-content">
+                                <h4>Dry Run Mode</h4>
+                                <p>Practice with simulated tokens and paper trading. No real money at risk.</p>
+                            </div>
+                            <input type="radio" name="mode" value="dry_run" checked>
+                        </div>
+                        
+                        <div class="mode-option" id="liveOption">
+                            <div class="mode-icon">💰</div>
+                            <div class="mode-content">
+                                <h4>Live Trading Mode</h4>
+                                <p>Real trading with actual SOL. Requires wallet setup and funds.</p>
+                                <div class="warning-box">
+                                    ⚠️ <strong>Warning:</strong> Live trading involves real money and risk of loss.
+                                </div>
+                            </div>
+                            <input type="radio" name="mode" value="live">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wallet Setup (Only shown in Live Mode) -->
+            <div class="card settings-card" id="walletCard" style="display: none;">
+                <div class="card-header">
+                    <h3>👛 Wallet Configuration</h3>
+                    <span class="badge badge-warning" id="walletStatus">Not Connected</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Wallet Keypair File</label>
+                        <div class="input-group">
+                            <input type="text" id="walletPath" placeholder="wallet.json" value="wallet.json">
+                            <button class="btn btn-secondary" id="checkWalletBtn">Check Balance</button>
+                        </div>
+                        <small>Path to your Solana wallet keypair JSON file</small>
+                    </div>
+
+                    <div id="walletInfo" style="display: none;">
+                        <div class="wallet-details">
+                            <div class="detail-item">
+                                <span>Address:</span>
+                                <strong id="walletAddress">-</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Balance:</span>
+                                <strong id="walletBalance" class="positive">0.0000 SOL</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <strong>Don't have a wallet?</strong>
+                        <p>Create one using the command line:</p>
+                        <code>python bot.py --create-keypair wallet.json</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Settings -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h3>🎯 Strategy Parameters</h3>
+                </div>
+                <div class="card-body">
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label>Max Position Size (%)</label>
+                            <input type="number" id="maxPositionSize" min="1" max="100" value="25">
+                            <small>Percentage of capital per trade</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Max Concurrent Trades</label>
+                            <input type="number" id="maxConcurrent" min="1" max="10" value="1">
+                            <small>Number of simultaneous positions</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profit Target (%)</label>
+                            <input type="number" id="profitTarget" min="1" max="1000" value="50">
+                            <small>Take profit at this gain</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Stop Loss (%)</label>
+                            <input type="number" id="stopLoss" min="1" max="100" value="10">
+                            <small>Cut losses at this percentage</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Trailing Stop (%)</label>
+                            <input type="number" id="trailingStop" min="1" max="100" value="10">
+                            <small>Lock profits from peak</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Max Hold Time (seconds)</label>
+                            <input type="number" id="maxHoldTime" min="10" max="600" value="90">
+                            <small>Force exit after this duration</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entry Criteria -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h3>🚀 Entry Criteria</h3>
+                </div>
+                <div class="card-body">
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label>Min Early Volume (SOL)</label>
+                            <input type="number" id="minVolume" min="0.1" max="10" step="0.1" value="0.5">
+                            <small>Minimum early trading volume</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Evaluation Window (seconds)</label>
+                            <input type="number" id="evalWindow" min="1" max="30" value="3">
+                            <small>Observation period before entry</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Min Bonding Curve (%)</label>
+                            <input type="number" id="minCurve" min="0" max="100" value="2">
+                            <small>Minimum curve filled percentage</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Max Bonding Curve (%)</label>
+                            <input type="number" id="maxCurve" min="0" max="100" value="60">
+                            <small>Maximum curve filled (avoid late)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Management -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h3>🛡️ Risk Management</h3>
+                </div>
+                <div class="card-body">
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label>Max Daily Loss (%)</label>
+                            <input type="number" id="maxDailyLoss" min="1" max="100" value="20">
+                            <small>Stop trading if down this much</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Max Loss Per Trade (SOL)</label>
+                            <input type="number" id="maxLossPerTrade" min="0.01" max="10" step="0.01" value="0.1">
+                            <small>Absolute maximum loss per trade</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Min SOL Balance</label>
+                            <input type="number" id="minBalance" min="0.01" max="1" step="0.01" value="0.05">
+                            <small>Reserve for transaction fees</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="settings-actions">
+                <button class="btn btn-primary btn-large" id="saveSettingsBtn">
+                    <span class="btn-icon">💾</span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-large" id="resetSettingsBtn">
+                    <span class="btn-icon">↻</span> Reset to Defaults
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>
+

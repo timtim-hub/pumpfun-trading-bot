@@ -107,8 +107,9 @@ class WebTradingBot:
         
         # Emit updates periodically
         while self.running:
-            await asyncio.sleep(1)
-            self.emit_update()
+            await asyncio.sleep(2)  # Update every 2 seconds
+            if self.running:
+                self.emit_update()
     
     def emit_update(self):
         """Emit bot status update via WebSocket"""
@@ -180,6 +181,12 @@ class WebTradingBot:
 def index():
     """Main dashboard page"""
     return render_template('dashboard.html')
+
+
+@app.route('/settings')
+def settings():
+    """Settings page"""
+    return render_template('settings.html')
 
 
 @app.route('/api/status')
@@ -267,7 +274,81 @@ def get_config_api():
     """Get current configuration"""
     if bot_state['config']:
         return jsonify(bot_state['config'].config)
-    return jsonify({})
+    
+    # Return default config if bot not initialized
+    try:
+        config = get_config()
+        return jsonify(config.config)
+    except:
+        return jsonify({})
+
+
+@app.route('/api/config/update', methods=['POST'])
+def update_config():
+    """Update configuration"""
+    try:
+        data = request.json
+        
+        if bot_state['running']:
+            return jsonify({'error': 'Cannot update config while bot is running'}), 400
+        
+        # Update config file
+        import yaml
+        config_path = Path('config.yaml')
+        
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Update specific fields
+        if 'mode' in data:
+            config['mode'] = data['mode']
+        
+        if 'strategy' in data:
+            for key, value in data['strategy'].items():
+                if key in config['strategy']:
+                    config['strategy'][key] = value
+        
+        if 'risk' in data:
+            for key, value in data['risk'].items():
+                if key in config['risk']:
+                    config['risk'][key] = value
+        
+        if 'wallet' in data:
+            for key, value in data['wallet'].items():
+                if key in config['wallet']:
+                    config['wallet'][key] = value
+        
+        # Save config
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        
+        return jsonify({'success': True, 'message': 'Configuration updated'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/wallet/check', methods=['POST'])
+def check_wallet():
+    """Check wallet balance"""
+    try:
+        data = request.json
+        keypair_path = data.get('keypair_path')
+        
+        if not keypair_path or not Path(keypair_path).exists():
+            return jsonify({'error': 'Wallet file not found'}), 404
+        
+        # This would check actual balance in production
+        # For now, return mock data
+        return jsonify({
+            'success': True,
+            'balance': 2.5,
+            'address': 'MockAddress123...',
+            'exists': True
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # WebSocket events
