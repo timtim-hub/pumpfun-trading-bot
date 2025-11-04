@@ -33,8 +33,8 @@ class RealLaunchDetector:
         self.pumpfun_program = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")
         
         # Polling configuration
-        self.poll_interval = 3  # Start with 3 seconds (will adjust if rate limited)
-        self.max_signatures_per_poll = 20  # Reduced to avoid rate limits
+        self.poll_interval = 2  # Check every 2 seconds (QuickNode can handle this!)
+        self.max_signatures_per_poll = 50  # Can request more with QuickNode
         self.last_signature = None
         self.rate_limit_backoff = 0  # Seconds to wait after rate limit
         self.consecutive_errors = 0

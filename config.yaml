@@ -30,8 +30,8 @@ solana:
   commitment: confirmed
   priority_fee: 5000
   pumpfun_program_id: 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P
-  rpc_endpoint: https://api.mainnet-beta.solana.com
-  ws_endpoint: wss://api.mainnet-beta.solana.com
+  rpc_endpoint: https://solemn-snowy-shadow.solana-mainnet.quiknode.pro/fdad4f0e3a96c7341baa07e245756ab5ca10eef1/
+  ws_endpoint: wss://solemn-snowy-shadow.solana-mainnet.quiknode.pro/fdad4f0e3a96c7341baa07e245756ab5ca10eef1/
 strategy:
   evaluation_window_seconds: 3
   max_bonding_curve_progress: 60
