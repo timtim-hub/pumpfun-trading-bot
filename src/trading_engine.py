@@ -321,17 +321,28 @@ class TradingEngine:
                 
                 signature, exit_sol = result
             
-            # Calculate fees
+            # Calculate fees properly
             fee_rate = self.config.get('strategy.trading_fee_percent', 1.25) / 100
+            
+            # Entry fee on SOL spent
             entry_fee = position.entry_sol_amount * fee_rate
-            exit_fee = (position.current_price * position.entry_token_amount) * fee_rate
+            
+            # Exit value before fees
+            gross_exit_value = position.current_price * position.entry_token_amount
+            
+            # Exit fee on SOL received
+            exit_fee = gross_exit_value * fee_rate
+            
+            # Net exit value after exit fee
+            net_exit_value = gross_exit_value - exit_fee
+            
             total_fees = entry_fee + exit_fee
             
-            # Create trade record
+            # Create trade record with net exit value
             trade = Trade.from_position(
                 position,
                 position.current_price,
-                position.current_price * position.entry_token_amount,
+                net_exit_value,  # Use net value after fees
                 reason,
                 total_fees,
                 signature

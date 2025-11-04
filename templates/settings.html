@@ -40,16 +40,17 @@
                 </div>
                 <div class="card-body">
                     <div class="mode-selector">
-                        <div class="mode-option" id="dryRunOption">
+                        <label class="mode-option" for="dryRunRadio">
+                            <input type="radio" name="mode" id="dryRunRadio" value="dry_run" checked>
                             <div class="mode-icon">🧪</div>
                             <div class="mode-content">
                                 <h4>Dry Run Mode</h4>
                                 <p>Practice with simulated tokens and paper trading. No real money at risk.</p>
                             </div>
-                            <input type="radio" name="mode" value="dry_run" checked>
-                        </div>
+                        </label>
                         
-                        <div class="mode-option" id="liveOption">
+                        <label class="mode-option" for="liveRadio">
+                            <input type="radio" name="mode" id="liveRadio" value="live">
                             <div class="mode-icon">💰</div>
                             <div class="mode-content">
                                 <h4>Live Trading Mode</h4>
@@ -58,8 +59,7 @@
                                     ⚠️ <strong>Warning:</strong> Live trading involves real money and risk of loss.
                                 </div>
                             </div>
-                            <input type="radio" name="mode" value="live">
-                        </div>
+                        </label>
                     </div>
                 </div>
             </div>

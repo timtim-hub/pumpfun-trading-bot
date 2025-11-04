@@ -114,13 +114,26 @@ class WebTradingBot:
     def emit_update(self):
         """Emit bot status update via WebSocket"""
         try:
+            if not self.trading_engine:
+                return
+                
             metrics = self.trading_engine.metrics
+            
+            # Calculate true current capital (available + positions value)
+            current_capital = self.trading_engine.available_capital
+            
+            # Add value of open positions
+            for position in self.trading_engine.active_positions.values():
+                current_capital += position.current_price * position.entry_token_amount
+            
+            # Update metrics with current capital
+            metrics.update_capital(current_capital)
             
             update_data = {
                 'running': self.running,
                 'timestamp': datetime.now().isoformat(),
                 'capital': {
-                    'current': round(self.trading_engine.available_capital, 4),
+                    'current': round(current_capital, 4),
                     'initial': round(metrics.initial_capital_sol, 4),
                     'peak': round(metrics.peak_capital_sol, 4),
                     'roi': round(metrics.roi_percent, 2)
