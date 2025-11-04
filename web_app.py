@@ -29,6 +29,15 @@ from src.risk_manager import RiskManager
 from src.trading_engine import TradingEngine
 from src.models import BotMetrics
 
+# Helpers
+def _is_valid_pubkey(mint: str) -> bool:
+    try:
+        from solders.pubkey import Pubkey
+        Pubkey.from_string(mint)
+        return True
+    except Exception:
+        return False
+
 # Initialize Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'pumpfun-trading-bot-secret'
@@ -363,10 +372,13 @@ def get_trades():
         with open(trade_log, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                mint = row.get('token_mint', '')
+                if mint and not _is_valid_pubkey(mint):
+                    mint = ''  # hide invalid mock mints from links
                 trades.append({
                     'timestamp': row['timestamp'],
                     'symbol': row['token_symbol'],
-                    'mint': row.get('token_mint', ''),  # Add mint for Pump.fun links
+                    'mint': mint,
                     'entry_price': float(row['entry_price']),
                     'exit_price': float(row['exit_price']) if row['exit_price'] else 0,
                     'pnl_sol': float(row['pnl_sol']),
@@ -379,6 +391,18 @@ def get_trades():
         # Return latest 50 trades
         return jsonify(trades[-50:])
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/trades/clear', methods=['POST'])
+def clear_trades():
+    """Clear trade history (useful to remove old mock entries)"""
+    try:
+        trade_log = Path('logs/trades.csv')
+        if trade_log.exists():
+            trade_log.unlink()
+        return jsonify({'success': True, 'message': 'Trade history cleared'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
