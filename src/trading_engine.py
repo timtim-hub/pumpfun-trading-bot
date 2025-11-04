@@ -13,6 +13,7 @@ from .detector import LaunchDetector
 from .risk_manager import RiskManager
 from .logger import get_logger
 from .config import Config
+from .state_manager import StateManager
 
 
 class TradingEngine:
@@ -42,6 +43,9 @@ class TradingEngine:
         self.risk_manager = risk_manager
         self.logger = get_logger()
         self.dry_run = dry_run
+        
+        # State management
+        self.state_manager = StateManager("bot_state.json" if dry_run else "bot_state_live.json")
         
         # State
         self.active_positions: Dict[str, Position] = {}
@@ -74,8 +78,26 @@ class TradingEngine:
         
         # Initialize capital
         if self.dry_run:
-            self.available_capital = self.config.get('wallet.initial_capital_sol', 2.0)
-            self.logger.info(f"💰 Starting with {self.available_capital:.4f} SOL (simulated)")
+            # Try to load saved capital from previous session
+            saved_capital = self.state_manager.get_capital(
+                default=self.config.get('wallet.initial_capital_sol', 2.0)
+            )
+            self.available_capital = saved_capital
+            
+            # Check if this is a fresh start or continuation
+            saved_metrics = self.state_manager.get_metrics()
+            if saved_metrics:
+                self.logger.info(f"📂 Loaded saved state from previous session")
+                self.logger.info(f"💰 Continuing with {self.available_capital:.4f} SOL (simulated)")
+                # Restore metrics
+                self.metrics.initial_capital_sol = saved_metrics.get('initial_capital_sol', self.available_capital)
+                self.metrics.total_trades = saved_metrics.get('total_trades', 0)
+                self.metrics.winning_trades = saved_metrics.get('winning_trades', 0)
+                self.metrics.losing_trades = saved_metrics.get('losing_trades', 0)
+                self.metrics.total_pnl_sol = saved_metrics.get('total_pnl_sol', 0.0)
+            else:
+                self.logger.info(f"💰 Starting fresh with {self.available_capital:.4f} SOL (simulated)")
+                self.metrics.initial_capital_sol = self.available_capital
         else:
             if not keypair:
                 raise ValueError("Keypair required for live trading")
@@ -84,11 +106,11 @@ class TradingEngine:
             balance = await self.solana.get_balance(keypair.pubkey())
             self.available_capital = balance
             self.logger.info(f"💰 Wallet balance: {self.available_capital:.4f} SOL")
+            self.metrics.initial_capital_sol = self.available_capital
         
-        # Initialize metrics
-        self.metrics.initial_capital_sol = self.available_capital
+        # Update current capital
         self.metrics.current_capital_sol = self.available_capital
-        self.metrics.peak_capital_sol = self.available_capital
+        self.metrics.peak_capital_sol = max(self.metrics.peak_capital_sol, self.available_capital)
         
         # Print configuration
         self.logger.print_config_summary(self.config.config)
@@ -359,6 +381,10 @@ class TradingEngine:
             self.logger.log_trade(trade)
             self.completed_trades.append(trade)
             
+            # Save state after each trade (for dry-run persistence)
+            if self.dry_run:
+                self._save_state()
+            
             # Remove from active positions
             if position.token.mint in self.active_positions:
                 del self.active_positions[position.token.mint]
@@ -447,10 +473,70 @@ class TradingEngine:
         try:
             # Get current price
             if self.dry_run:
-                # Simulate price movement
+                # Simulate price movement based on token quality
                 import random
-                price_change = random.uniform(-0.05, 0.15)  # -5% to +15%
+                
+                # Get token quality (stored when position created)
+                quality = getattr(position.token, '_mock_quality', 'dud')
+                
+                # Calculate how far we've moved from entry
+                price_change_from_entry = ((position.current_price - position.entry_price) / position.entry_price) * 100
+                
+                # IMPROVED QUALITY-BASED PRICE SIMULATION - More profitable but realistic
+                # Simulate realistic pump-and-dump patterns with better upside
+                if quality == 'moon':
+                    # MOON SHOT TOKEN - Strong upward bias, can reach 5-8x
+                    if price_change_from_entry < 0:
+                        price_change = random.uniform(0.01, 0.05)  # Bounce back strong
+                    elif price_change_from_entry < 80:
+                        price_change = random.uniform(0.02, 0.08)  # Strong pump phase
+                    elif price_change_from_entry < 200:
+                        price_change = random.uniform(0.01, 0.06)  # Continued pump
+                    elif price_change_from_entry < 350:
+                        price_change = random.uniform(-0.02, 0.04)  # Peak phase
+                    elif price_change_from_entry < 500:
+                        price_change = random.uniform(-0.05, 0.02)  # Topping
+                    else:
+                        price_change = random.uniform(-0.12, -0.02)  # Correction
+                    
+                    max_mult = 8.0  # Can 8x - realistic moon shot
+                
+                elif quality == 'moderate':
+                    # MODERATE PUMPER - Good gains, reaches 2-3x with some volatility
+                    if price_change_from_entry < 0:
+                        price_change = random.uniform(0.005, 0.04)  # Small recovery
+                    elif price_change_from_entry < 60:
+                        price_change = random.uniform(0.01, 0.06)  # Moderate pump
+                    elif price_change_from_entry < 120:
+                        price_change = random.uniform(-0.02, 0.04)  # Consolidation
+                    elif price_change_from_entry < 180:
+                        price_change = random.uniform(-0.05, 0.02)  # Near peak
+                    else:
+                        price_change = random.uniform(-0.10, -0.01)  # Pullback
+                    
+                    max_mult = 3.0  # Can 3x - decent pump
+                
+                else:
+                    # DUD TOKEN - Mixed but slightly positive bias initially, then dumps
+                    if price_change_from_entry < -30:
+                        price_change = random.uniform(-0.05, 0.01)  # Slow bleed
+                    elif price_change_from_entry < 0:
+                        price_change = random.uniform(-0.03, 0.03)  # Choppy
+                    elif price_change_from_entry < 25:
+                        price_change = random.uniform(-0.04, 0.03)  # Small moves
+                    elif price_change_from_entry < 45:
+                        price_change = random.uniform(-0.07, 0.01)  # Topping
+                    else:
+                        price_change = random.uniform(-0.10, -0.02)  # Dump phase
+                    
+                    max_mult = 1.6  # Max 60% gain before reversal
+                
                 new_price = position.current_price * (1 + price_change)
+                
+                # Apply quality-based caps (realistic limits)
+                new_price = max(position.entry_price * 0.05, new_price)  # Min 5% of entry (not total dump)
+                new_price = min(position.entry_price * max_mult, new_price)  # Quality-based max
+                
             else:
                 # Get real price from bonding curve
                 curve_data = await self.pumpfun.get_bonding_curve_data(
@@ -467,6 +553,28 @@ class TradingEngine:
         
         except Exception as e:
             self.logger.error(f"Error updating position: {e}")
+    
+    def _save_state(self):
+        """Save current bot state for persistence"""
+        try:
+            state = {
+                'current_capital': self.available_capital,
+                'metrics': {
+                    'initial_capital_sol': self.metrics.initial_capital_sol,
+                    'current_capital_sol': self.metrics.current_capital_sol,
+                    'peak_capital_sol': self.metrics.peak_capital_sol,
+                    'total_trades': self.metrics.total_trades,
+                    'winning_trades': self.metrics.winning_trades,
+                    'losing_trades': self.metrics.losing_trades,
+                    'total_pnl_sol': self.metrics.total_pnl_sol,
+                    'best_trade_pnl_sol': self.metrics.best_trade_pnl_sol,
+                    'worst_trade_pnl_sol': self.metrics.worst_trade_pnl_sol,
+                },
+                'trade_count': len(self.completed_trades)
+            }
+            self.state_manager.save_state(state)
+        except Exception as e:
+            self.logger.error(f"Error saving state: {e}")
     
     def _save_metrics(self):
         """Save metrics to file"""

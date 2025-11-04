@@ -16,7 +16,7 @@
                     <div class="logo-icon">⚙️</div>
                     <div>
                         <h1>Bot Settings</h1>
-                        <p class="subtitle">Configure Trading Parameters</p>
+                        <p class="subtitle">Configure Trading Parameters & Wallet</p>
                     </div>
                 </div>
                 <div class="header-actions">
@@ -64,41 +64,281 @@
                 </div>
             </div>
 
-            <!-- Wallet Setup (Only shown in Live Mode) -->
+            <!-- Wallet Setup Tutorial (Only shown in Live Mode) -->
             <div class="card settings-card" id="walletCard" style="display: none;">
                 <div class="card-header">
-                    <h3>👛 Wallet Configuration</h3>
+                    <h3>👛 Wallet Setup Tutorial</h3>
                     <span class="badge badge-warning" id="walletStatus">Not Connected</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label>Wallet Keypair File</label>
-                        <div class="input-group">
-                            <input type="text" id="walletPath" placeholder="wallet.json" value="wallet.json">
-                            <button class="btn btn-secondary" id="checkWalletBtn">Check Balance</button>
-                            <button class="btn btn-success" id="createWalletBtn">Create New</button>
+                    
+                    <!-- Tutorial Steps -->
+                    <div class="tutorial-container">
+                        <div class="tutorial-intro">
+                            <h4>🚀 Complete Guide to Setting Up Your Trading Wallet</h4>
+                            <p>Follow these steps to create and fund your Solana wallet for live trading. This process takes about 5 minutes.</p>
                         </div>
-                        <small>Path to your Solana wallet keypair JSON file</small>
+
+                        <!-- Step 1: Setup Wallet -->
+                        <div class="tutorial-step" id="step1">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Setup Your Trading Wallet</h4>
+                                <p>Choose how you want to set up your wallet for trading. You can use your existing Phantom wallet or create a new one.</p>
+                                
+                                <!-- Option A: Use Phantom Wallet (Recommended) -->
+                                <div class="funding-option" style="border: 2px solid rgba(99, 102, 241, 0.3);">
+                                    <div class="option-number">👻</div>
+                                    <div class="option-content">
+                                        <h6>Option A: Use Existing Phantom Wallet (Recommended)</h6>
+                                        <p>Export your private key from Phantom and use it with the bot. This allows you to keep using your existing wallet.</p>
+                                        
+                                        <div class="phantom-steps">
+                                            <h6>📱 For Phantom Browser Extension:</h6>
+                                            <ol>
+                                                <li>Open Phantom extension in your browser</li>
+                                                <li>Click your <strong>profile avatar</strong> (top left corner)</li>
+                                                <li>Click <strong>"Manage Accounts"</strong> (pencil/edit icon)</li>
+                                                <li>Select the account you want to export</li>
+                                                <li>Click <strong>"Show Private Key"</strong></li>
+                                                <li>Enter your Phantom password to confirm</li>
+                                                <li>Copy the private key (base58 string)</li>
+                                                <li>Paste it in the box below</li>
+                                            </ol>
+                                        </div>
+
+                                        <div class="phantom-steps">
+                                            <h6>📱 For Phantom Mobile App:</h6>
+                                            <ol>
+                                                <li>Open Phantom app</li>
+                                                <li>Tap your <strong>profile avatar</strong> (top left)</li>
+                                                <li>Tap the <strong>⚙️ Settings icon</strong> (top right)</li>
+                                                <li>Scroll down and tap <strong>"Security & Privacy"</strong></li>
+                                                <li>Tap <strong>"Export Private Key"</strong></li>
+                                                <li>Select the account you want to export</li>
+                                                <li>Authenticate with password or biometrics</li>
+                                                <li>Copy the private key (base58 string)</li>
+                                                <li>Paste it in the box below</li>
+                                            </ol>
+                                        </div>
+
+                                        <div class="form-group" style="margin-top: 16px;">
+                                            <label>Phantom Private Key</label>
+                                            <div class="input-group">
+                                                <input type="password" id="phantomPrivateKey" placeholder="Paste your Phantom private key here..." style="flex: 1;">
+                                                <button class="btn btn-primary" id="importPhantomBtn">
+                                                    <span class="btn-icon">📥</span> Import Phantom Wallet
+                                                </button>
+                                            </div>
+                                            <small>Your private key will be securely saved to <code>wallet.json</code> locally</small>
+                                        </div>
+
+                                        <div class="warning-box">
+                                            ⚠️ <strong>Security Warning:</strong>
+                                            <ul>
+                                                <li>Never share your private key with anyone</li>
+                                                <li>Only paste it in trusted applications (like this bot running locally)</li>
+                                                <li>The key is stored locally on your computer, not sent anywhere</li>
+                                                <li>Consider using a separate wallet for trading to limit risk</li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <strong>💡 Can't find "Export Private Key"?</strong>
+                                            <p><strong>For Browser Extension:</strong></p>
+                                            <p>Profile Avatar (top left) → Manage Accounts (pencil icon) → Select Account → Show Private Key</p>
+                                            <p><strong>For Mobile App:</strong></p>
+                                            <p>Profile Avatar (top left) → ⚙️ Settings (top right) → Security & Privacy → Export Private Key → Select Account</p>
+                                            <p><strong>Note:</strong> The private key is a long base58-encoded string (like "5j7s..."). If you see a seed phrase (12/24 words), that's different - you need the private key!</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Option B: Create New Wallet -->
+                                <div class="funding-option">
+                                    <div class="option-number">➕</div>
+                                    <div class="option-content">
+                                        <h6>Option B: Create a New Wallet</h6>
+                                        <p>Generate a fresh Solana wallet specifically for trading. You'll need to fund it separately.</p>
+                                        
+                                        <div class="step-action" style="margin-top: 12px;">
+                                            <button class="btn btn-secondary" id="createWalletBtn">
+                                                <span class="btn-icon">➕</span> Create New Wallet
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Wallet Import Success -->
+                                <div id="walletCreatedInfo" style="display: none;">
+                                    <div class="success-box">
+                                        ✅ <strong>Wallet Imported Successfully!</strong>
+                                        <p>Your wallet has been saved to: <code id="createdWalletPath">wallet.json</code></p>
+                                    </div>
+                                    
+                                    <div class="wallet-display">
+                                        <div class="wallet-item">
+                                            <label>📍 Wallet Address:</label>
+                                            <div class="copy-container">
+                                                <input type="text" id="walletAddressDisplay" readonly>
+                                                <button class="btn btn-small btn-secondary" onclick="copyAddress()">
+                                                    📋 Copy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <span class="step-status" id="step1Status" style="display: block; margin-top: 16px; text-align: center;">Not completed</span>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Verify/Fund Wallet -->
+                        <div class="tutorial-step" id="step2">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Verify or Fund Your Wallet</h4>
+                                <p>If you imported your Phantom wallet, it should already have SOL. Otherwise, fund your new wallet with SOL for trading and transaction fees.</p>
+                                
+                                <div class="info-box">
+                                    ℹ️ <strong>Using Phantom wallet?</strong> Skip to Step 3 to check your balance!
+                                </div>
+                                
+                                <div class="funding-guide">
+                                    <h5>📤 How to Send SOL to Your Wallet:</h5>
+                                    
+                                    <div class="funding-option">
+                                        <div class="option-number">A</div>
+                                        <div class="option-content">
+                                            <h6>From a Centralized Exchange (Recommended for Beginners)</h6>
+                                            <ol>
+                                                <li>Log in to your exchange account (Coinbase, Binance, Kraken, etc.)</li>
+                                                <li>Navigate to your <strong>Solana (SOL)</strong> wallet</li>
+                                                <li>Click <strong>"Withdraw"</strong> or <strong>"Send"</strong></li>
+                                                <li>Paste your wallet address (from Step 1 above)</li>
+                                                <li>Enter the amount of SOL to send (recommended: at least 0.5 SOL to start)</li>
+                                                <li>Confirm the network is <strong>"Solana"</strong> (NOT Solana-wrapped tokens)</li>
+                                                <li>Complete the withdrawal</li>
+                                            </ol>
+                                            <div class="info-box">
+                                                ⏱️ <strong>Transfer Time:</strong> Usually takes 1-5 minutes
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="funding-option">
+                                        <div class="option-number">B</div>
+                                        <div class="option-content">
+                                            <h6>From Another Solana Wallet (Phantom, Solflare, etc.)</h6>
+                                            <ol>
+                                                <li>Open your existing Solana wallet (Phantom, Solflare, etc.)</li>
+                                                <li>Click <strong>"Send"</strong> or transfer icon</li>
+                                                <li>Paste your bot's wallet address</li>
+                                                <li>Enter amount (keep some SOL in your main wallet for fees)</li>
+                                                <li>Confirm and send</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+
+                                    <div class="funding-option">
+                                        <div class="option-number">C</div>
+                                        <div class="option-content">
+                                            <h6>Buy SOL Directly (if you don't have any)</h6>
+                                            <ol>
+                                                <li>Use services like <strong>Moonpay</strong>, <strong>Ramp</strong>, or <strong>Transak</strong></li>
+                                                <li>Enter your wallet address as the recipient</li>
+                                                <li>Follow their KYC process</li>
+                                                <li>Purchase SOL with credit/debit card</li>
+                                            </ol>
+                                            <div class="warning-box">
+                                                ⚠️ On-ramp services may have fees and require identity verification
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="recommended-box">
+                                    <h5>💰 Recommended Starting Amounts:</h5>
+                                    <ul>
+                                        <li><strong>Testing:</strong> 0.1 - 0.5 SOL (~$10-50)</li>
+                                        <li><strong>Small Scale:</strong> 0.5 - 2 SOL (~$50-200)</li>
+                                        <li><strong>Medium Scale:</strong> 2 - 10 SOL (~$200-1000)</li>
+                                    </ul>
+                                    <p><em>Remember: Only trade with money you can afford to lose!</em></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Verify Balance -->
+                        <div class="tutorial-step" id="step3">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Verify Your Wallet Balance</h4>
+                                <p>Check that your wallet has received SOL and is ready for trading.</p>
+                                
+                                <div class="step-action">
+                                    <button class="btn btn-primary" id="checkBalanceBtn">
+                                        <span class="btn-icon">🔍</span> Check Balance
+                                    </button>
+                                    <span class="step-status" id="step3Status">Not checked</span>
+                                </div>
+
+                                <div id="balanceInfo" style="display: none;">
+                                    <div class="wallet-balance-display">
+                                        <div class="balance-item">
+                                            <span>Current Balance:</span>
+                                            <strong id="currentBalance" class="balance-value">0.0000 SOL</strong>
+                                        </div>
+                                        <div class="balance-item">
+                                            <span>USD Value (approx):</span>
+                                            <strong id="usdValue" class="balance-value">$0.00</strong>
+                                        </div>
+                                        <div class="balance-item">
+                                            <span>Status:</span>
+                                            <span id="balanceStatus" class="badge badge-warning">Checking...</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="info-box">
+                                    <strong>🔄 Balance not showing?</strong>
+                                    <ul>
+                                        <li>Wait a few minutes for the transaction to confirm</li>
+                                        <li>Check the transaction on <a href="https://solscan.io" target="_blank">Solscan.io</a></li>
+                                        <li>Verify you sent to the correct address</li>
+                                        <li>Ensure you sent on Solana mainnet (not devnet or testnet)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Configure Trading -->
+                        <div class="tutorial-step" id="step4">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Configure Trading Parameters</h4>
+                                <p>Adjust your risk settings and strategy parameters below, then save your settings.</p>
+                                
+                                <div class="success-box">
+                                    ✅ Once you complete the steps above and configure your parameters, you'll be ready to start live trading!
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div id="walletInfo" style="display: none;">
-                        <div class="wallet-details">
-                            <div class="detail-item">
-                                <span>Address:</span>
-                                <strong id="walletAddress">-</strong>
+                    <!-- Advanced: Manual Wallet Path -->
+                    <details class="advanced-section">
+                        <summary>🔧 Advanced: Use Existing Wallet File</summary>
+                        <div class="form-group">
+                            <label>Wallet Keypair File Path</label>
+                            <div class="input-group">
+                                <input type="text" id="walletPath" placeholder="wallet.json" value="wallet.json">
+                                <button class="btn btn-secondary" id="loadWalletBtn">Load Wallet</button>
                             </div>
-                            <div class="detail-item">
-                                <span>Balance:</span>
-                                <strong id="walletBalance" class="positive">0.0000 SOL</strong>
-                            </div>
+                            <small>Path to your Solana wallet keypair JSON file</small>
                         </div>
-                    </div>
+                    </details>
 
-                    <div class="info-box">
-                        <strong>Don't have a wallet?</strong>
-                        <p>Create one using the command line:</p>
-                        <code>python bot.py --create-keypair wallet.json</code>
-                    </div>
                 </div>
             </div>
 
@@ -229,4 +469,3 @@
     <script src="{{ url_for('static', filename='settings.js') }}"></script>
 </body>
 </html>
-

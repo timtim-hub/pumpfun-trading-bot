@@ -306,7 +306,7 @@ class MockLaunchDetector(LaunchDetector):
                 await self.on_token_launch(mock_token)
     
     def _generate_mock_token(self) -> TokenInfo:
-        """Generate a mock token for testing"""
+        """Generate a mock token with realistic quality distribution"""
         import random
         import string
         
@@ -316,9 +316,31 @@ class MockLaunchDetector(LaunchDetector):
         symbol = ''.join(random.choices(string.ascii_uppercase, k=4))
         name = f"Mock Token {self.mock_index}"
         
-        # Random initial metrics
-        initial_price = random.uniform(0.000001, 0.00001)
-        volume = random.uniform(0.1, 2.0)
+        # REALISTIC DISTRIBUTION:
+        # 80% of tokens are duds (will dump or go nowhere)
+        # 15% are moderate pumpers (2-5x potential)
+        # 5% are moon shots (5-10x potential)
+        
+        quality_roll = random.random()
+        
+        if quality_roll < 0.80:
+            # DUD TOKEN (80% chance)
+            quality = 'dud'
+            initial_price = random.uniform(0.000001, 0.00001)
+            volume = random.uniform(0.05, 0.3)  # Low volume
+            bonding_progress = random.uniform(0.5, 3.0)  # Low interest
+        elif quality_roll < 0.95:
+            # MODERATE PUMPER (15% chance)
+            quality = 'moderate'
+            initial_price = random.uniform(0.000001, 0.00001)
+            volume = random.uniform(0.5, 2.0)  # Decent volume
+            bonding_progress = random.uniform(3.0, 8.0)  # Good interest
+        else:
+            # MOON SHOT (5% chance)
+            quality = 'moon'
+            initial_price = random.uniform(0.000001, 0.00001)
+            volume = random.uniform(1.5, 5.0)  # High volume
+            bonding_progress = random.uniform(8.0, 15.0)  # Strong interest
         
         token = TokenInfo(
             mint=f"mock_mint_{self.mock_index}",
@@ -331,26 +353,61 @@ class MockLaunchDetector(LaunchDetector):
             initial_price=initial_price,
             current_price=initial_price,
             total_volume_sol=volume,
-            bonding_curve_progress=random.uniform(1, 10)
+            bonding_curve_progress=bonding_progress
         )
+        
+        # Store quality as metadata for simulation
+        token._mock_quality = quality
+        self._last_token_quality = quality  # Store for activity simulation
         
         return token
     
     async def get_early_trading_activity(self, 
                                         bonding_curve: Pubkey,
                                         duration_seconds: int = 5) -> Dict[str, Any]:
-        """Mock early activity monitoring"""
+        """Mock early activity monitoring with realistic signals"""
         import random
         
         await asyncio.sleep(duration_seconds)
         
-        # Return simulated activity
-        return {
-            'buy_count': random.randint(5, 50),
-            'sell_count': random.randint(0, 10),
-            'volume_sol': random.uniform(0.5, 5.0),
-            'unique_buyers': random.randint(3, 30),
-            'price_change_percent': random.uniform(-10, 100),
-            'bonding_curve_progress': random.uniform(2, 15)
-        }
+        # Try to get token quality from bonding curve string
+        # This is a hack for simulation - in real impl this wouldn't exist
+        quality = 'dud'  # default
+        if hasattr(bonding_curve, '_mock_quality'):
+            quality = bonding_curve._mock_quality
+        elif isinstance(bonding_curve, str) and 'mock_curve' in bonding_curve:
+            # Retrieve from most recent token (hacky but works for simulation)
+            quality = getattr(self, '_last_token_quality', 'dud')
+        
+        # Generate activity based on token quality
+        if quality == 'moon':
+            # STRONG SIGNALS - Moon shot token (passes filter easily)
+            return {
+                'buy_count': random.randint(30, 70),
+                'sell_count': random.randint(0, 2),  # Very few sells
+                'volume_sol': random.uniform(2.5, 10.0),
+                'unique_buyers': random.randint(25, 60),
+                'price_change_percent': random.uniform(40, 180),  # Strong pump
+                'bonding_curve_progress': random.uniform(10, 25)
+            }
+        elif quality == 'moderate':
+            # GOOD SIGNALS - Moderate pumper (usually passes filter)
+            return {
+                'buy_count': random.randint(15, 40),
+                'sell_count': random.randint(1, 6),
+                'volume_sol': random.uniform(1.2, 5.0),
+                'unique_buyers': random.randint(10, 30),
+                'price_change_percent': random.uniform(15, 70),  # Decent pump
+                'bonding_curve_progress': random.uniform(6, 15)
+            }
+        else:
+            # WEAK SIGNALS - Dud token (sometimes passes, often filtered)
+            return {
+                'buy_count': random.randint(5, 20),
+                'sell_count': random.randint(2, 10),  # More sells
+                'volume_sol': random.uniform(0.3, 2.0),
+                'unique_buyers': random.randint(3, 15),
+                'price_change_percent': random.uniform(-10, 35),  # Weak
+                'bonding_curve_progress': random.uniform(2, 8)
+            }
 

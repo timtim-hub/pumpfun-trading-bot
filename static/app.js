@@ -62,7 +62,9 @@ socket.on('error', (data) => {
 // Event Listeners
 function setupEventListeners() {
     startBtn.addEventListener('click', () => {
+        console.log('🚀 START BUTTON CLICKED - Emitting start_bot event...');
         socket.emit('start_bot');
+        console.log('✅ start_bot event emitted!');
         startBtn.disabled = true;
         startBtn.innerHTML = '<span class="btn-icon">⏳</span> Starting...';
     });
@@ -73,6 +75,7 @@ function setupEventListeners() {
         stopBtn.innerHTML = '<span class="btn-icon">⏳</span> Stopping...';
     });
 
+    document.getElementById('resetBtn').addEventListener('click', resetState);
     document.getElementById('refreshTrades').addEventListener('click', loadTrades);
     
     document.getElementById('filterOutcome').addEventListener('change', (e) => {
@@ -113,56 +116,63 @@ function updateDashboard(data) {
         document.getElementById('peakCapital').textContent = data.capital.peak.toFixed(4);
         
         console.log('🎨 ✅ Capital updated in DOM');
-    
-    const roiValue = data.capital.roi;
-    const roiElement = document.getElementById('roi');
-    roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
-    roiElement.className = `metric-value ${roiValue >= 0 ? 'positive' : 'negative'}`;
-    
-    const capitalChange = document.getElementById('capitalChange');
-    capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
-    capitalChange.className = `change ${roiValue >= 0 ? 'positive' : 'negative'}`;
-
-    // Update P&L
-    document.getElementById('totalPnl').textContent = data.pnl.total;
-    document.getElementById('netPnl').textContent = data.pnl.net;
-
-    // Update trades
-    document.getElementById('totalTrades').textContent = data.trades.total;
-    document.getElementById('winningTrades').textContent = data.trades.winning;
-    document.getElementById('losingTrades').textContent = data.trades.losing;
-    
-    const winRate = data.trades.win_rate;
-    document.getElementById('winRate').textContent = `${winRate}%`;
-
-    // Update activity
-    document.getElementById('tokensEvaluated').textContent = data.activity.evaluated;
-    document.getElementById('tokensSkipped').textContent = data.activity.skipped;
-    document.getElementById('activePositions').textContent = data.activity.active_positions;
-
-    // Update active positions
-    if (data.positions && data.positions.length > 0) {
-        updatePositions(data.positions);
-    } else {
-        document.getElementById('positionsCard').style.display = 'none';
-    }
-
-    // Update chart
-    capitalHistory.push({
-        time: new Date(data.timestamp),
-        capital: data.capital.current
-    });
-    
-    // Keep last 100 data points
-    if (capitalHistory.length > 100) {
-        capitalHistory.shift();
+    } catch (e) {
+        console.error('❌ Error updating capital:', e);
     }
     
-    updatePerformanceChart();
+    try {
+        const roiValue = data.capital.roi;
+        const roiElement = document.getElementById('roi');
+        roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
+        roiElement.className = `metric-value ${roiValue >= 0 ? 'positive' : 'negative'}`;
+        
+        const capitalChange = document.getElementById('capitalChange');
+        capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
+        capitalChange.className = `change ${roiValue >= 0 ? 'positive' : 'negative'}`;
 
-    // Refresh trades periodically
-    if (Math.random() < 0.1) { // 10% chance each update
-        loadTrades();
+        // Update P&L (display in SOL with suffix)
+        document.getElementById('totalPnl').textContent = `${data.pnl.total.toFixed(4)} SOL`;
+        document.getElementById('netPnl').textContent = `${data.pnl.net.toFixed(4)} SOL`;
+
+        // Update trades
+        document.getElementById('totalTrades').textContent = data.trades.total;
+        document.getElementById('winningTrades').textContent = data.trades.winning;
+        document.getElementById('losingTrades').textContent = data.trades.losing;
+        
+        const winRate = data.trades.win_rate;
+        document.getElementById('winRate').textContent = `${winRate}%`;
+
+        // Update activity
+        document.getElementById('tokensEvaluated').textContent = data.activity.evaluated;
+        document.getElementById('tokensSkipped').textContent = data.activity.skipped;
+        document.getElementById('activePositions').textContent = data.activity.active_positions;
+
+        // Update active positions
+        if (data.positions && data.positions.length > 0) {
+            updatePositions(data.positions);
+        } else {
+            document.getElementById('positionsCard').style.display = 'none';
+        }
+
+        // Update chart
+        capitalHistory.push({
+            time: new Date(data.timestamp),
+            capital: data.capital.current
+        });
+        
+        // Keep last 100 data points
+        if (capitalHistory.length > 100) {
+            capitalHistory.shift();
+        }
+        
+        updatePerformanceChart();
+
+        // Refresh trades periodically
+        if (Math.random() < 0.1) { // 10% chance each update
+            loadTrades();
+        }
+    } catch (e) {
+        console.error('❌ Error updating dashboard:', e);
     }
 }
 
@@ -352,10 +362,74 @@ function updatePnlChart(wins, losses, breakeven) {
 }
 
 // Load Initial Data
+// Reset State
+async function resetState() {
+    if (!confirm('⚠️ Reset Bot State?\n\nThis will:\n• Reset capital to initial 2 SOL\n• Clear all trade history\n• Reset all metrics\n\nYou need to RESTART the bot after resetting.\n\nContinue?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/reset_state', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showToast('Success', 'State reset! Please stop and restart the bot.', 'success');
+            // Suggest stopping the bot
+            if (statusIndicator.classList.contains('active')) {
+                socket.emit('stop_bot');
+            }
+        } else {
+            showToast('Error', data.error || 'Failed to reset state', 'error');
+        }
+    } catch (error) {
+        console.error('Error resetting state:', error);
+        showToast('Error', 'Failed to reset state: ' + error.message, 'error');
+    }
+}
+
 async function loadInitialData() {
     try {
         const response = await fetch('/api/status');
         const data = await response.json();
+        
+        console.log('📂 Loading initial data:', data);
+        
+        // Update dashboard with saved state (even if bot not running)
+        if (data.capital) {
+            console.log('💰 Restoring saved capital:', data.capital.current, 'SOL');
+            
+            // Update capital display
+            document.getElementById('currentCapital').textContent = `${data.capital.current.toFixed(4)} SOL`;
+            document.getElementById('initialCapital').textContent = data.capital.initial.toFixed(4);
+            document.getElementById('peakCapital').textContent = data.capital.peak.toFixed(4);
+            
+            // Update ROI
+            const roiValue = data.capital.roi;
+            const roiElement = document.getElementById('roi');
+            roiElement.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
+            roiElement.className = `metric-value ${roiValue >= 0 ? 'positive' : 'negative'}`;
+            
+            const capitalChange = document.getElementById('capitalChange');
+            capitalChange.textContent = `${roiValue >= 0 ? '+' : ''}${roiValue.toFixed(2)}%`;
+            capitalChange.className = `change ${roiValue >= 0 ? 'positive' : 'negative'}`;
+            
+            // Update trades
+            if (data.trades) {
+                document.getElementById('totalTrades').textContent = data.trades.total;
+                document.getElementById('winningTrades').textContent = data.trades.winning;
+                document.getElementById('losingTrades').textContent = data.trades.losing;
+                document.getElementById('winRate').textContent = `${data.trades.win_rate}%`;
+            }
+            
+            // Update P&L
+            if (data.pnl) {
+                document.getElementById('totalPnl').textContent = data.pnl.total;
+                document.getElementById('netPnl').textContent = data.pnl.net;
+            }
+        }
         
         if (data.running) {
             updateStatus(true);

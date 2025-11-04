@@ -43,7 +43,7 @@ strategy:
   trailing_stop_percent: 10  # Trailing stop from peak
   stop_loss_percent: 10  # Hard stop loss
   max_hold_time_seconds: 90  # Max time to hold before forced exit
-  min_hold_time_seconds: 5  # Min time before allowing any sell
+  min_hold_time_seconds: 10  # Min time before allowing any sell (increased for stability)
   
   # Fee and slippage
   trading_fee_percent: 1.25  # Pump.fun fee

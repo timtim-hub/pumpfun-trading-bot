@@ -4,6 +4,10 @@ Flask Web Dashboard for Pump.fun Trading Bot
 Beautiful real-time monitoring interface
 """
 
+# Eventlet monkey patching must be first!
+import eventlet
+eventlet.monkey_patch()
+
 import sys
 import json
 import asyncio
@@ -29,7 +33,7 @@ from src.models import BotMetrics
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'pumpfun-trading-bot-secret'
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
 
 # Global state
 bot_state = {
@@ -103,13 +107,18 @@ class WebTradingBot:
     async def start(self):
         """Start the trading bot"""
         self.running = True
-        await self.trading_engine.start(keypair=None)
+        
+        # Start trading engine in background task
+        engine_task = asyncio.create_task(self.trading_engine.start(keypair=None))
         
         # Emit updates periodically
         while self.running:
             await asyncio.sleep(2)  # Update every 2 seconds
             if self.running:
                 self.emit_update()
+        
+        # Wait for engine to stop
+        await engine_task
     
     def emit_update(self):
         """Emit bot status update via WebSocket"""
@@ -223,14 +232,63 @@ def settings():
     return render_template('settings.html')
 
 
+@app.route('/api/reset_state', methods=['POST'])
+def reset_state():
+    """Reset bot state (start fresh with initial capital)"""
+    try:
+        from src.state_manager import StateManager
+        
+        state_manager = StateManager("bot_state.json")
+        state_manager.clear_state()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Bot state reset successfully. Restart the bot to start fresh.'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/status')
 def get_status():
     """Get current bot status"""
     if not bot_state['engine']:
-        return jsonify({
-            'running': False,
-            'message': 'Bot not initialized'
-        })
+        # Bot not running, but try to load saved state to show
+        from src.state_manager import StateManager
+        state_manager = StateManager("bot_state.json")
+        saved_state = state_manager.load_state()
+        
+        if saved_state:
+            # Show saved state
+            saved_metrics = saved_state.get('metrics', {})
+            return jsonify({
+                'running': False,
+                'message': 'Bot not initialized (showing saved state)',
+                'timestamp': datetime.now().isoformat(),
+                'capital': {
+                    'current': round(saved_state.get('current_capital', 2.0), 4),
+                    'initial': round(saved_metrics.get('initial_capital_sol', 2.0), 4),
+                    'peak': round(saved_metrics.get('peak_capital_sol', 2.0), 4),
+                    'roi': round(((saved_state.get('current_capital', 2.0) - saved_metrics.get('initial_capital_sol', 2.0)) / saved_metrics.get('initial_capital_sol', 2.0) * 100) if saved_metrics.get('initial_capital_sol', 2.0) > 0 else 0.0, 2)
+                },
+                'trades': {
+                    'total': saved_metrics.get('total_trades', 0),
+                    'winning': saved_metrics.get('winning_trades', 0),
+                    'losing': saved_metrics.get('losing_trades', 0),
+                    'win_rate': round((saved_metrics.get('winning_trades', 0) / max(saved_metrics.get('total_trades', 1), 1) * 100), 2)
+                },
+                'pnl': {
+                    'total': round(saved_metrics.get('total_pnl_sol', 0.0), 4),
+                    'net': round(saved_metrics.get('total_pnl_sol', 0.0), 4),
+                    'fees': round(saved_metrics.get('total_fees_paid_sol', 0.0), 4)
+                }
+            })
+        else:
+            # No saved state, show defaults
+            return jsonify({
+                'running': False,
+                'message': 'Bot not initialized'
+            })
     
     engine = bot_state['engine']
     metrics = engine.metrics
@@ -428,6 +486,52 @@ def create_wallet():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/wallet/import', methods=['POST'])
+def import_wallet():
+    """Import wallet from private key (Phantom, Solflare, etc.)"""
+    try:
+        data = request.json
+        private_key = data.get('private_key', '').strip()
+        wallet_path = data.get('wallet_path', 'wallet.json')
+        
+        if not private_key:
+            return jsonify({'error': 'Private key is required'}), 400
+        
+        from solders.keypair import Keypair as SoldersKeypair
+        import json as json_lib
+        import base58
+        
+        # Try to parse the private key (can be base58 string or array)
+        try:
+            # Try base58 decode first (most common format from Phantom)
+            private_key_bytes = base58.b58decode(private_key)
+            keypair = SoldersKeypair.from_bytes(private_key_bytes)
+        except:
+            try:
+                # Try as JSON array [1,2,3,...]
+                private_key_array = json_lib.loads(private_key)
+                keypair = SoldersKeypair.from_bytes(bytes(private_key_array))
+            except:
+                return jsonify({'error': 'Invalid private key format. Please copy it exactly from Phantom.'}), 400
+        
+        # Save to file
+        wallet_file = Path(wallet_path)
+        wallet_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(wallet_file, 'w') as f:
+            json_lib.dump(list(bytes(keypair)), f)
+        
+        return jsonify({
+            'success': True,
+            'path': wallet_path,
+            'address': str(keypair.pubkey()),
+            'message': 'Phantom wallet imported successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Failed to import wallet: {str(e)}'}), 500
+
+
 # WebSocket events
 @socketio.on('connect')
 def handle_connect():
@@ -445,34 +549,45 @@ def handle_disconnect():
 @socketio.on('start_bot')
 def handle_start_bot():
     """Start the trading bot"""
+    print("🚀 Received start_bot request")
+    
     if bot_state['running']:
+        print("⚠️  Bot already running")
         emit('error', {'message': 'Bot is already running'})
         return
     
     def run_bot():
+        print("🔧 Initializing bot...")
         bot = WebTradingBot()
         bot_state['bot'] = bot
         bot_state['config'] = bot.config
         
         try:
+            print("🔧 Running bot.initialize()...")
             bot.run_async(bot.initialize())
             bot_state['engine'] = bot.trading_engine
             bot_state['running'] = True
             
+            print("✅ Bot initialized successfully!")
             socketio.emit('bot_started', {'message': 'Bot started successfully'})
             
             # Run bot
+            print("🚀 Starting bot main loop...")
             bot.run_async(bot.start())
         
         except Exception as e:
-            print(f"Error starting bot: {e}")
+            import traceback
+            print(f"❌ Error starting bot: {e}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
             bot_state['running'] = False
             socketio.emit('error', {'message': f'Failed to start bot: {str(e)}'})
     
     # Start bot in background thread
+    print("🧵 Starting bot thread...")
     thread = threading.Thread(target=run_bot)
     thread.daemon = True
     thread.start()
+    print("✅ Bot thread started!")
 
 
 @socketio.on('stop_bot')
