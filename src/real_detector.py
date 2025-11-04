@@ -119,8 +119,12 @@ class RealLaunchDetector:
                 
                 self.seen_signatures.add(signature)
                 
-                # For every transaction, assume it's a potential token launch
-                # Parse it directly (faster than checking first)
+                # Only handle real Pump.fun "Create" transactions
+                is_create = await self._is_token_creation(signature)
+                if not is_create:
+                    continue
+                
+                # Parse token from transaction
                 token = await self._parse_token_from_transaction_fast(signature, sig_info)
                 
                 if token and self.on_token_launch:
@@ -241,14 +245,17 @@ class RealLaunchDetector:
             name = "Pump Token"
             symbol = mint[:4]
 
+            # Build TokenInfo according to models.TokenInfo
             token = TokenInfo(
                 mint=mint,
                 name=name,
                 symbol=symbol,
-                uri="",
-                bonding_curve=bonding_curve or "",
                 creator=creator or "",
-                timestamp=datetime.now()
+                bonding_curve=bonding_curve or "",
+                associated_bonding_curve="",
+                created_at=datetime.now(),
+                block_time=getattr(sig_info, 'block_time', None),
+                signature=signature
             )
             return token
         except Exception as e:
