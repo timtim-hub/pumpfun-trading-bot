@@ -53,6 +53,7 @@ class TradingEngine:
         self.metrics = BotMetrics()
         
         # Capital tracking
+        self.initial_capital_sol = self.config.get('wallet.initial_capital_sol', 2.0)
         self.available_capital = 0.0
         self.keypair = None
         
@@ -99,18 +100,58 @@ class TradingEngine:
                 self.logger.info(f"💰 Starting fresh with {self.available_capital:.4f} SOL (simulated)")
                 self.metrics.initial_capital_sol = self.available_capital
         else:
-            if not keypair:
-                raise ValueError("Keypair required for live trading")
+            # LIVE MODE - Load wallet and get real balance
+            self.logger.info("🔴 LIVE TRADING MODE - Loading wallet...")
             
-            # Get actual balance
-            balance = await self.solana.get_balance(keypair.pubkey())
-            self.available_capital = balance
-            self.logger.info(f"💰 Wallet balance: {self.available_capital:.4f} SOL")
-            self.metrics.initial_capital_sol = self.available_capital
+            if not keypair:
+                # Try to load from wallet.json
+                from pathlib import Path
+                import json
+                from solders.keypair import Keypair
+                
+                wallet_path = Path('wallet.json')
+                if not wallet_path.exists():
+                    raise ValueError("❌ wallet.json not found! Please import your wallet in Settings.")
+                
+                self.logger.info(f"📂 Loading wallet from {wallet_path}...")
+                with open(wallet_path, 'r') as f:
+                    keypair_data = json.load(f)
+                
+                keypair = Keypair.from_bytes(bytes(keypair_data))
+                self.keypair = keypair
+                self.logger.info(f"✅ Wallet loaded: {str(keypair.pubkey())}")
+            else:
+                self.keypair = keypair
+            
+            # Get actual balance from Solana blockchain
+            self.logger.info(f"🔗 Querying balance from Solana blockchain...")
+            try:
+                balance = await self.solana.get_balance(self.keypair.pubkey())
+                self.available_capital = balance
+                self.initial_capital_sol = balance
+                self.metrics.initial_capital_sol = balance
+                
+                self.logger.info(f"💰 LIVE WALLET BALANCE: {self.available_capital:.9f} SOL")
+                
+                if balance == 0:
+                    self.logger.warning("⚠️  WARNING: Wallet balance is 0 SOL!")
+                    self.logger.warning("    Please fund your wallet before trading.")
+                elif balance < 0.01:
+                    self.logger.warning(f"⚠️  WARNING: Low balance ({balance:.9f} SOL)")
+                    self.logger.warning("    You may not have enough for trades + fees.")
+                else:
+                    self.logger.info(f"✅ Sufficient balance for trading")
+                
+            except Exception as e:
+                self.logger.error(f"❌ Failed to get wallet balance: {e}")
+                raise ValueError(f"Could not query wallet balance from Solana: {e}")
         
-        # Update current capital
+        # Update current capital and metrics
         self.metrics.current_capital_sol = self.available_capital
         self.metrics.peak_capital_sol = max(self.metrics.peak_capital_sol, self.available_capital)
+        
+        self.logger.info(f"📊 Initial Capital: {self.available_capital:.9f} SOL")
+        self.logger.info(f"📊 Mode: {'DRY RUN (Simulated)' if self.dry_run else '🔴 LIVE TRADING (Real Money!)'}")
         
         # Print configuration
         self.logger.print_config_summary(self.config.config)

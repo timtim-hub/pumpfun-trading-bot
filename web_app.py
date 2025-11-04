@@ -25,6 +25,7 @@ from src.config import get_config
 from src.logger import get_logger
 from src.solana_client import SolanaClient, PumpFunClient
 from src.detector import LaunchDetector, MockLaunchDetector
+from src.polling_detector import PollingLaunchDetector
 from src.risk_manager import RiskManager
 from src.trading_engine import TradingEngine
 from src.models import BotMetrics
@@ -98,11 +99,13 @@ class WebTradingBot:
             )
             self.logger.info("🧪 Using Mock Launch Detector (Dry Run)")
         else:
-            self.detector = LaunchDetector(
+            # Use PollingLaunchDetector for live mode (more reliable than WebSocket)
+            self.detector = PollingLaunchDetector(
                 self.solana_client,
                 self.pumpfun_client
             )
-            self.logger.info("🔴 Using Real Launch Detector (Live Trading)")
+            self.logger.info("🔴 Using Polling Launch Detector (Live Trading)")
+            self.logger.info("   (Polls every 2s for new Pump.fun tokens)")
         
         # Initialize risk manager
         self.risk_manager = RiskManager(self.config.config)
