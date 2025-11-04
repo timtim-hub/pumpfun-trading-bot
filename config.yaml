@@ -1,0 +1,99 @@
+# Pump.fun Trading Bot Configuration
+
+# Trading Mode: 'dry_run' or 'live'
+mode: dry_run
+
+# Solana Configuration
+solana:
+  # RPC endpoint (use a premium provider like Helius, QuickNode, or Chainstack)
+  rpc_endpoint: "https://api.mainnet-beta.solana.com"
+  ws_endpoint: "wss://api.mainnet-beta.solana.com"
+  
+  # Pump.fun Program ID (mainnet)
+  pumpfun_program_id: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
+  
+  # Commitment level for transactions
+  commitment: "confirmed"
+  
+  # Priority fee in lamports (higher = faster confirmation)
+  priority_fee: 5000
+
+# Wallet Configuration
+wallet:
+  # Path to wallet keypair file (keep secure!)
+  keypair_path: "wallet.json"
+  
+  # Initial capital in SOL
+  initial_capital_sol: 2.0  # ~$100 at $50/SOL
+
+# Trading Strategy Parameters
+strategy:
+  # Position sizing
+  max_position_size_percent: 25  # Max % of capital per trade
+  max_concurrent_trades: 1  # Number of simultaneous positions
+  
+  # Entry criteria
+  min_early_volume_sol: 0.5  # Minimum early volume to consider entry
+  evaluation_window_seconds: 3  # How long to observe before deciding
+  min_bonding_curve_progress: 2  # Min % of bonding curve filled
+  max_bonding_curve_progress: 60  # Max % - avoid late entries
+  
+  # Exit criteria
+  profit_target_percent: 50  # Target profit % (50% = 1.5x)
+  trailing_stop_percent: 10  # Trailing stop from peak
+  stop_loss_percent: 10  # Hard stop loss
+  max_hold_time_seconds: 90  # Max time to hold before forced exit
+  min_hold_time_seconds: 5  # Min time before allowing any sell
+  
+  # Fee and slippage
+  trading_fee_percent: 1.25  # Pump.fun fee
+  max_slippage_percent: 5  # Max acceptable slippage
+  min_profit_after_fees: 3  # Min profit % after fees to trade
+
+# Risk Management
+risk:
+  # Global limits
+  max_daily_loss_percent: 20  # Stop trading if down this much in a day
+  max_loss_per_trade_sol: 0.1  # Absolute max loss per trade
+  
+  # Filters
+  blacklist_creators: []  # List of creator addresses to avoid
+  blacklist_keywords: ["scam", "rug", "test"]  # Keywords to filter out
+  
+  # Safety checks
+  min_sol_balance: 0.05  # Min SOL to keep for fees
+  enable_stop_loss: true
+  enable_profit_target: true
+
+# Data Sources (optional - for enhanced signals)
+data_sources:
+  # Bitquery API (optional)
+  bitquery:
+    enabled: false
+    api_key: ""
+    endpoint: "https://streaming.bitquery.io/graphql"
+  
+  # Helius API (optional)
+  helius:
+    enabled: false
+    api_key: ""
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/bot.log"
+  trade_log_file: "logs/trades.csv"
+  
+  # Notifications (optional)
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+
+# Performance Tracking
+tracking:
+  save_trade_history: true
+  history_file: "data/trade_history.json"
+  save_metrics: true
+  metrics_file: "data/metrics.json"
+
