@@ -211,7 +211,14 @@ async function loadWallet() {
 
 // Check wallet balance
 async function checkBalance() {
-    const walletPath = document.getElementById('walletPath').value;
+    let walletPath = document.getElementById('walletPath').value;
+    
+    // If no path specified, use default wallet.json
+    if (!walletPath || walletPath.trim() === '') {
+        walletPath = 'wallet.json';
+        document.getElementById('walletPath').value = walletPath;
+    }
+    
     const btn = document.getElementById('checkBalanceBtn');
     const originalText = btn.innerHTML;
     btn.innerHTML = '<span class="btn-icon">⏳</span> Checking...';

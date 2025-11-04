@@ -425,27 +425,37 @@ def check_wallet():
     """Check wallet balance"""
     try:
         data = request.json
-        keypair_path = data.get('keypair_path')
+        # Accept both 'wallet_path' and 'keypair_path' for flexibility
+        wallet_path = data.get('wallet_path') or data.get('keypair_path')
         
-        if not keypair_path:
+        if not wallet_path:
             return jsonify({'error': 'Wallet path required'}), 400
         
         # Check if file exists
-        wallet_file = Path(keypair_path)
+        wallet_file = Path(wallet_path)
         if not wallet_file.exists():
-            return jsonify({'error': f'Wallet file not found: {keypair_path}'}), 404
+            return jsonify({'error': f'Wallet file not found: {wallet_path}'}), 404
         
         # Try to load the actual wallet and check balance
         try:
             import json as json_lib
+            from solders.keypair import Keypair as SoldersKeypair
+            
             with open(wallet_file, 'r') as f:
                 secret_key = json_lib.load(f)
             
-            # For now, return mock data (in production this would check actual balance)
+            # Load keypair to get address
+            keypair = SoldersKeypair.from_bytes(bytes(secret_key))
+            address = str(keypair.pubkey())
+            
+            # For dry-run mode, return mock balance
+            # In production, this would query the Solana blockchain
+            mock_balance = 2.5
+            
             return jsonify({
                 'success': True,
-                'balance': 2.5,
-                'address': f'{keypair_path[:20]}...',
+                'balance': mock_balance,
+                'address': address,
                 'exists': True
             })
         except Exception as e:
